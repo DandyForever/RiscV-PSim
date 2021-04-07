@@ -1,13 +1,13 @@
 #include "perfsim.h"
 #include "consts.h"
 
-PerfSim::PerfSim(std::string executable_filename)
-    : loader(executable_filename)
-    , memory(loader.load_data(), MEM_LATENCY)
+PerfSim::PerfSim(char* executable_filename)
+    : elfManager(executable_filename)
+    , memory(elfManager.getWords(), MEM_LATENCY)
     , icache(memory, CACHE_WAY, CACHE_SET, CACHE_LINE)
     , dcache(memory, CACHE_WAY, CACHE_SET, CACHE_LINE)
     , rf()
-    , PC(loader.get_start_PC())
+    , PC(elfManager.getPC())
     , clocks(0)
     , ops(0)
 {

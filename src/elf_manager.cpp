@@ -56,7 +56,7 @@ size_t read_words_num(std::vector<GElf_Phdr>& phdrs) {
 void ElfManager::read_words(int fd) {
     words.resize(read_words_num(phdrs) / sizeof(uint8_t));
     for (size_t i = 0; i < phdrs.size(); i++) {
-        std::vector<uint32_t> current(phdrs[i].p_memsz);
+        std::vector<uint8_t> current(phdrs[i].p_memsz);
         lseek(fd, phdrs[i].p_offset, SEEK_SET);
         if (read(fd, &(current[0]), phdrs[i].p_filesz) < 0)
             errx(EXIT_FAILURE, "read failed: %s", elf_errmsg(-1));

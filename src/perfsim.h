@@ -7,10 +7,11 @@
 #include "cache.h"
 #include "stage_register.h"
 #include "elf.h"
+#include "elf_manager.h"
 
 class PerfSim {
 private:
-    ElfLoader loader;
+    ElfManager elfManager;
     PerfMemory memory;
     Cache icache;
     Cache dcache;
@@ -54,7 +55,7 @@ private:
     } wires;
 
 public:
-    PerfSim(std::string executable_filename);
+    PerfSim(char* executable_filename);
     void run(uint32 n);
     
     void step();

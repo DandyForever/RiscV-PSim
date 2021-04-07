@@ -6,7 +6,7 @@ int main(int argc, char** argv) {
         std::cout << "Required arguments (1):FILE_NAME (2):NUM_CYCLES (3 optional):IS_FUNCTIONAL_SIMULATOR" << std::endl;
         return -1;
     }
-    std::string file_name = std::string(argv[1]);
+    char* file_name = argv[1];
     int num_cycles = atoi(argv[2]);
     int is_fsim = 0;
     if (argc == 4)

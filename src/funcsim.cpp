@@ -1,10 +1,10 @@
 #include "funcsim.h"
 
-FuncSim::FuncSim(std::string executable_filename)
-    : loader(executable_filename)
-    , memory(loader.load_data())
+FuncSim::FuncSim(char* executable_filename)
+    : elfManager(executable_filename)
+    , memory(elfManager.getWords())
     , rf()
-    , PC(loader.get_start_PC())
+    , PC(elfManager.getPC())
 {
     // setup stack
     rf.set_stack_pointer(memory.get_stack_pointer());

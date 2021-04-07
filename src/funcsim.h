@@ -5,15 +5,16 @@
 #include "rf.h"
 #include "memory.h"
 #include "elf.h"
+#include "elf_manager.h"
 
 class FuncSim {
     private:
-        ElfLoader loader;
+        ElfManager elfManager;
         FuncMemory memory;
         RF rf;
         Addr PC = NO_VAL32;
     public:
-        FuncSim(std::string executable_filename);
+        FuncSim(char* executable_filename);
         void step();
         void run(uint32 n);
 };
