@@ -1,9 +1,5 @@
 #include "rf.h"
-#include "config.h"
-
-namespace config {
-    static         Value<uint64>      dump_rf     = { "dump_rf", "whether to dump RF state", false };
-}
+#include "consts.h"
 
 uint32 RF::read(Register num) const {
     if (this->is_valid(num))
@@ -53,7 +49,7 @@ void RF::set_stack_pointer(uint32 value) {
 }
 
 void RF::dump() const {
-    if (!config::dump_rf)
+    if (!IS_DUMP)
         return;
 
     std::cout << "Register file dump:" << std::endl;
