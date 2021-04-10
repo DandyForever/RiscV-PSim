@@ -30,66 +30,26 @@ void PerfSim::step() {
     this->execute_stage();
     this->decode_stage();
     this->fetch_stage();
-
-    std::cout << "STALLS: "
-              << hu.FD_stage_reg_stall
-              << hu.DE_stage_reg_stall
-              << hu.EM_stage_reg_stall
-              << std::endl;
-
+    
     rf.dump();
     clocks++;
 
-    hu.is_any_stall = static_cast<int>(hu.is_branch_mispredict) + \
-                    static_cast<int>(hu.is_fetch_stall) + \
-                    static_cast<int>(hu.is_memory_stall) + \
-                    static_cast<int>(hu.is_data_stall) > 1;
-    if (hu.is_any_stall) {
-        hu.latency_total++;
-        if (hu.is_branch_mispredict) hu.mispredict_penalty += 2;
-    } else {
-        if (hu.is_fetch_stall || hu.is_memory_stall) {
-            hu.latency_memory++;
-        }
-        if (hu.is_data_stall)
-            hu.latency_data_dependency++;
-        if (hu.is_branch_mispredict)
-            hu.mispredict_penalty+=3;
-    }
-    if (ops > 0)
-        std::cout << "CPI: " << clocks*1.0/ops << std::endl;
-    std::cout << std::dec << "Clocks: " << clocks << std::endl;
-    std::cout << "Ops: " << ops << std::endl;
-    std::cout << "Data stalls: " << hu.latency_data_dependency << std::endl;
-    std::cout << "latency_memory: " << hu.latency_memory << std::endl;
-    std::cout << "Branch penalties: " << hu.mispredict_penalty << std::endl;
-    std::cout << "Multiple stalls: " << hu.latency_total << std::endl;
-    std::cout << std::string(50, '-') << std::endl << std::endl;
+    hu.update_stats();
 
-    if (!hu.FD_stage_reg_stall)
+    hu.print_stats(clocks, ops);
+    
+    if (!hu.is_stall_FD())
         stage_registers.FETCH_DECODE.clock();
 
-    if (!hu.DE_stage_reg_stall)
+    if (!hu.is_stall_DE())
         stage_registers.DECODE_EXE.clock();
 
-    if (!hu.EM_stage_reg_stall)
+    if (!hu.is_stall_EM())
         stage_registers.EXE_MEM.clock();
 
-    if (!false)
         stage_registers.MEM_WB.clock();
     
-    hu.FD_stage_reg_stall = \
-    hu.DE_stage_reg_stall = \
-    hu.EM_stage_reg_stall = false;
-
-    hu.is_branch_mispredict = \
-    hu.is_data_stall = \
-    hu.is_fetch_stall = \
-    hu.is_memory_stall = \
-    hu.is_any_stall = false;
-
-    if (!hu.is_pipe_not_empty) return;
-    hu.is_pipe_not_empty = false;
+    hu.reset();
 }
 
 void PerfSim::run(uint32_t n) {
@@ -98,28 +58,22 @@ void PerfSim::run(uint32_t n) {
 }
 
 void PerfSim::fetch_stage() {
-    std::cout << "FETCH:  ";
+    std::cout << "FETCH:     ";
     static bool awaiting_memory_request = false;
     static uint32_t fetch_data = NO_VAL32;
 
-    if (hu.FD_stage_reg_stall) {
-        std::cout << "BUBBLE" << std::endl;
+    if (hu.check_stall_FD()) {
+        std::cout << "STALLED" << std::endl;
         stage_registers.FETCH_DECODE.write(nullptr);
         return;
     }
     
-    // branch mispredctiion handling
-    if (hu.memory_to_all_flush) {
-        fetch_data = NO_VAL32;
-        awaiting_memory_request = false;
-        PC = hu.memory_to_fetch_target;
-        std::cout << "FLUSH, ";
-    }
+    PC = hu.handle_mispredict_fetch(PC);
 
     std::cout << std::hex << "PC: " << PC << std::endl;
 
     if (icache.is_busy()) {
-        std::cout << "\tWAITING ICACHE" << std::endl;
+        std::cout << "\tWAITING FOR ICACHE" << std::endl;
         stage_registers.FETCH_DECODE.write(nullptr);
         return;
     }
@@ -129,26 +83,26 @@ void PerfSim::fetch_stage() {
         uint32_t addr = PC;
         icache.send_read_request(addr, 4);
         awaiting_memory_request = true;
-        std::cout << "\tsent request to icache" << std::endl;
+        std::cout << "\tRequest to ICACHE sent" << std::endl;
     }
 
-    auto request = icache.get_request_status();
+    auto status = icache.get_request_status();
     bool fetch_complete = false;
-    if (request.is_ready) {
-        fetch_data = request.data;
+    if (status.is_ready) {
+        fetch_data = status.data;
 
-        std::cout << "\tgot request from icache" << std::endl;
+        std::cout << "\tFeedback from ICACHE recieved" << std::endl;
         
         awaiting_memory_request = false;
         fetch_complete = true;
     }
 
     if (fetch_complete) {
-        if ((fetch_data == 0 )| (fetch_data == NO_VAL32)) {
+        if ((fetch_data == 0 ) | (fetch_data == NO_VAL32)) {
             stage_registers.FETCH_DECODE.write(nullptr);
             std::cout << "Empty" << std::endl;
         } else {
-            hu.is_pipe_not_empty = true;
+            hu.set_pipe_not_empty();
             Instruction* data = new Instruction(fetch_data, PC);
             std::cout << "\t0x" << std::hex << data->get_PC() << ": "
                       << data->get_disasm() << " "
@@ -159,77 +113,55 @@ void PerfSim::fetch_stage() {
         }
     } else {
         stage_registers.FETCH_DECODE.write(nullptr);
-        hu.is_fetch_stall = true;
-        return;
+        hu.set_stall_fetch();
     }
 }
 
 
 void PerfSim::decode_stage() {
-    std::cout << "DECODE: ";
+    std::cout << "DECODE:    ";
 
     Instruction* data = nullptr;
     data = stage_registers.FETCH_DECODE.read();
 
+    hu.bypass_stall_FD(data != nullptr);
 
-    if (hu.DE_stage_reg_stall & (data != nullptr))
-        hu.FD_stage_reg_stall = true;
-
-    // branch mispredctiion handling
-    if (hu.memory_to_all_flush) {
+    if (hu.is_mispredict()) {
         stage_registers.DECODE_EXE.write(nullptr);
         std::cout << "FLUSH" << std::endl;
         if (data != nullptr) delete data;
         return;
     }
-    
 
     if (data == nullptr) {
         stage_registers.DECODE_EXE.write(nullptr);
-        std::cout << "BUBBLE" << std::endl;
+        std::cout << "STALLED" << std::endl;
         return;
     }
-    hu.is_pipe_not_empty = true;
-    std::cout << "0x" << std::hex << data->get_PC() << ": "
-              << data->get_disasm() << " "
-              << std::endl;
+    hu.set_pipe_not_empty();
+    std::cout << "0x" << std::hex << data->get_PC() << ": " << data->get_disasm() << " " << std::endl;
 
-    // read RF registers mask
-    uint32_t decode_stage_regs = \
-        (1 << static_cast<uint32_t>(data->get_rs1()))
-      | (1 << static_cast<uint32_t>(data->get_rs2()));
-
-    uint32_t hazards = \
-        (decode_stage_regs & hu.execute_stage_regs)
-      | (decode_stage_regs & hu.memory_stage_regs);
-
-    if ((hazards >> 1) != 0) {
-        hu.is_data_stall = true;
-        hu.FD_stage_reg_stall = true;
+    if (hu.is_data_hazard_decode(static_cast<uint32_t>(data->get_rs1()), static_cast<uint32_t>(data->get_rs2())))
         stage_registers.DECODE_EXE.write(nullptr);
-    } else {
+    else {
         this->rf.read_sources(*data);
         stage_registers.DECODE_EXE.write(data);
     }
 
-    std::cout << "\tRegisters read: " << data->get_rs1() << " " \
+    std::cout << "\tRead from RF: " << data->get_rs1() << " " \
               << data->get_rs2() << std::endl;
 }
 
 
 void PerfSim::execute_stage() {
-    std::cout << "EXE:    ";
+    std::cout << "EXECUTE:   ";
 
     Instruction* data = nullptr;
     data = stage_registers.DECODE_EXE.read();
 
-    hu.execute_stage_regs = 0;
+    hu.bypass_stall_DE(data != nullptr);
 
-    if (hu.EM_stage_reg_stall & (data != nullptr))
-        hu.DE_stage_reg_stall = true;
-
-    // branch mispredctiion handling
-    if (hu.memory_to_all_flush) {
+    if (hu.is_mispredict()) {
         stage_registers.EXE_MEM.write(nullptr);
         std::cout << "FLUSH" << std::endl;
         if (data != nullptr) delete data;
@@ -238,22 +170,21 @@ void PerfSim::execute_stage() {
 
     if (data == nullptr) {
         stage_registers.EXE_MEM.write(nullptr);
-        std::cout << "BUBBLE" << std::endl;
+        std::cout << "STALLED" << std::endl;
         return;
     }
-    hu.is_pipe_not_empty = true;
-    // actual execution takes place here
+    hu.set_pipe_not_empty();
+    
     data->execute();
-    hu.execute_stage_regs = (1 << static_cast<uint32_t>(data->get_rd()));
+
+    hu.set_reg_execute(static_cast<uint32_t>(data->get_rd()));
     stage_registers.EXE_MEM.write(data);
 
-    std::cout << "0x" << std::hex << data->get_PC() << ": "
-                      << data->get_disasm() << " "
-                      << std::endl;
+    std::cout << "0x" << std::hex << data->get_PC() << ": " << data->get_disasm() << " "<< std::endl;
 }
 
 void PerfSim::memory_stage() {
-    std::cout << "MEM:    ";
+    std::cout << "MEMORY:    ";
     static uint32_t memory_stage_iterations_complete = 0;
     static bool awaiting_memory_request = false;
     static uint32_t memory_data = NO_VAL32;
@@ -261,30 +192,25 @@ void PerfSim::memory_stage() {
     Instruction* data = nullptr;
     data = stage_registers.EXE_MEM.read();
 
-    hu.memory_to_all_flush = false;
-    hu.memory_to_fetch_target = NO_VAL32;
-    hu.memory_stage_regs = 0;
+    hu.init_memory_stage();
 
     if (data == nullptr) {
         stage_registers.MEM_WB.write(nullptr);
-        std::cout << "BUBBLE" << std::endl;
+        std::cout << "STALLED" << std::endl;
         return;
     }
-    hu.is_pipe_not_empty = true;
-    hu.memory_stage_regs = (1 << static_cast<uint32_t>(data->get_rd()));
+    hu.set_pipe_not_empty();
+    hu.set_reg_memory(static_cast<uint32_t>(data->get_rd()));
 
-    // memory operations
     if (data->is_load() | data->is_store()) {
         if (dcache.is_busy()) {
-            std::cout << "WAITING DCACHE" << std::endl;
-            hu.EM_stage_reg_stall = true;
+            std::cout << "WAITING FOR DCACHE" << std::endl;
+            hu.set_stall_memory();
             stage_registers.MEM_WB.write(nullptr);
-            hu.is_memory_stall = true;
             return;
         }
 
         if (!awaiting_memory_request) {
-            // send requests to memory
             uint32_t addr = data->get_memory_addr() + (memory_stage_iterations_complete * 2);
             size_t num_bytes = (data->get_memory_size() == 1) ? 1 : 2;
 
@@ -303,7 +229,7 @@ void PerfSim::memory_stage() {
             }
 
             awaiting_memory_request = true;
-            std::cout << "\tsent request to dcache" << std::endl;
+            std::cout << "\tRequest to DCACHE sent" << std::endl;
         }
 
         auto request = dcache.get_request_status();
@@ -318,7 +244,7 @@ void PerfSim::memory_stage() {
 
             awaiting_memory_request = false;
             memory_stage_iterations_complete++;
-            std::cout << "GOT request from dcache" << std::endl;
+            std::cout << "Feedback from DCACHE recieved" << std::endl;
         }
 
         bool memory_operation_complete = \
@@ -330,39 +256,28 @@ void PerfSim::memory_stage() {
         } else {
             std::cout << "\tmemory_stage_iterations_complete: "
                       << memory_stage_iterations_complete << std::endl;
-            hu.EM_stage_reg_stall = true;
+            hu.set_stall_memory();
             stage_registers.MEM_WB.write(nullptr);
-            hu.is_memory_stall = true;
             return;
         }
     } else {
         std::cout << "NOT a memory operation" << std::endl;
     }
 
-    // jump operations
-    if (data->is_jump() | data->is_branch()) {
-        if (data->get_new_PC() != data->get_PC() + 4) {
-            // target misprediction handling
-            hu.memory_to_all_flush = true;
-            hu.memory_to_fetch_target = data->get_new_PC();
-            hu.is_branch_mispredict = true;
-        }
-    }
+    if (data->is_jump() | data->is_branch())
+        if (data->get_new_PC() != data->get_PC() + 4)
+            hu.set_mispredict(data->get_new_PC());
 
-    // pass data to writeback stage
     stage_registers.MEM_WB.write(data);
 
-    std::cout << "\t0x" << std::hex << data->get_PC() << ": "
-              << data->get_disasm() << " "
-              << std::endl;
+    std::cout << "\t0x" << std::hex << data->get_PC() << ": " << data->get_disasm() << " " << std::endl;
 
-    if (hu.memory_to_all_flush)
+    if (hu.is_mispredict())
         std::cout << "\tbranch misprediction, flush" << std::endl;
 } 
 
-
 void PerfSim::writeback_stage() {
-    std::cout << "WB:     ";
+    std::cout << "WRITEBACK: ";
     Instruction* data = nullptr;
     
     data = stage_registers.MEM_WB.read();
@@ -371,10 +286,8 @@ void PerfSim::writeback_stage() {
         std::cout << "BUBBLE" << std::endl;
         return;
     }
-    hu.is_pipe_not_empty = true;
-    std::cout << "0x" << std::hex << data->get_PC() << ": "
-          << data->get_disasm() << " "
-          << std::endl;
+    hu.set_pipe_not_empty();
+    std::cout << "0x" << std::hex << data->get_PC() << ": " << data->get_disasm() << " " << std::endl;
     this->rf.writeback(*data);
     ops++;
     delete data;
