@@ -108,11 +108,11 @@ void Instruction::execute_addi() {
 }
 
 void Instruction::execute_slti() {
-    rd_v =  static_cast<uint32>(static_cast<int32_t>(rs1_v) < imm_v);
+    rd_v =  static_cast<uint32_t>(static_cast<int32_t>(rs1_v) < imm_v);
 }
 
 void Instruction::execute_sltiu() {
-    rd_v = static_cast<uint32>(rs1_v < static_cast<uint32>(imm_v));
+    rd_v = static_cast<uint32_t>(rs1_v < static_cast<uint32_t>(imm_v));
 }
 
 void Instruction::execute_xori() {
@@ -132,7 +132,7 @@ void Instruction::execute_slli() {
 }
 
 void Instruction::execute_srai() {
-    rd_v = static_cast<uint32>(static_cast<int32_t>(rs1_v) >> \
+    rd_v = static_cast<uint32_t>(static_cast<int32_t>(rs1_v) >> \
         (imm_v & 0b00000000'00000000'00000000'00011111));
 }
 
@@ -154,12 +154,12 @@ void Instruction::execute_sll() {
 }
 
 void Instruction::execute_slt() {
-    rd_v =  static_cast<uint32>(static_cast<int32_t>(rs1_v) < \
+    rd_v =  static_cast<uint32_t>(static_cast<int32_t>(rs1_v) < \
                             static_cast<int32_t>(rs2_v));
 }
 
 void Instruction::execute_sltu() {
-    rd_v =  static_cast<uint32>(rs1_v < rs2_v);
+    rd_v =  static_cast<uint32_t>(rs1_v < rs2_v);
 }
 
 void Instruction::execute_xor() {
@@ -175,7 +175,7 @@ void Instruction::execute_and() {
 }
 
 void Instruction::execute_sra() {
-    rd_v = static_cast<uint32>(static_cast<int32_t>(rs1_v) >> \
+    rd_v = static_cast<uint32_t>(static_cast<int32_t>(rs1_v) >> \
         (rs2_v & 0b00000000'00000000'00000000'00011111));
 }
 

@@ -1,14 +1,14 @@
 #include "rf.h"
 #include "consts.h"
 
-uint32 RF::read(Register num) const {
+uint32_t RF::read(Register num) const {
     if (this->is_valid(num))
         return this->register_table[num].value;
     
     throw std::invalid_argument("Register " + num.get_name() + " is INVALID");
 }
 
-void RF::write(Register num, uint32 value) {
+void RF::write(Register num, uint32_t value) {
     if (num == 0) return;
     this->register_table[num].value = value;
     this->validate(num);
@@ -33,18 +33,18 @@ void RF::read_sources(Instruction &instr) const {
 }
 
 void RF::writeback(const Instruction &instr) {
-    uint32 value = instr.get_rd_v();
+    uint32_t value = instr.get_rd_v();
 
     if (instr.is_sign_extended_load()) {
         auto bits = 8*instr.get_memory_size();
-        int32 sign_extended_value = sign_extend(bits, value);
-        value = static_cast<uint32>(sign_extended_value);
+        int32_t sign_extended_value = sign_extend(bits, value);
+        value = static_cast<uint32_t>(sign_extended_value);
     }
 
     this->write(instr.get_rd(), value);
 }
 
-void RF::set_stack_pointer(uint32 value) {
+void RF::set_stack_pointer(uint32_t value) {
     this->write(Register::Number::sp, value);
 }
 
@@ -54,7 +54,7 @@ void RF::dump() const {
 
     std::cout << "Register file dump:" << std::endl;
     
-    for(uint8 i = 0; i < (Register::MAX_NUMBER); ++i) {
+    for(uint8_t i = 0; i < (Register::MAX_NUMBER); ++i) {
         if (!this->is_valid(i))
             continue;
 

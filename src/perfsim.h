@@ -1,13 +1,13 @@
 #ifndef PERFSIM_H
 #define PERFSIM_H
 
-#include "common.h"
 #include "rf.h"
 #include "memory.h"
 #include "cache.h"
 #include "stage_register.h"
 #include "elf.h"
 #include "elf_manager.h"
+#include "consts.h"
 
 class PerfSim {
 private:
@@ -16,13 +16,13 @@ private:
     Cache icache;
     Cache dcache;
     RF rf;
-    Addr PC;
-    uint32 clocks;
-    uint32 ops;
-    uint32 branch_penalties = 0;
-    uint32 data_stalls = 0;
-    uint32 memory_stalls = 0;
-    uint32 multiple_stalls = 0;
+    uint32_t PC;
+    uint32_t clocks;
+    uint32_t ops;
+    uint32_t branch_penalties = 0;
+    uint32_t data_stalls = 0;
+    uint32_t memory_stalls = 0;
+    uint32_t multiple_stalls = 0;
     bool pipeline_not_empty = true;
 
     bool branch_mispredict = false;
@@ -41,7 +41,7 @@ private:
     // used for feedback from later stages to earlier stages 
     struct WireStore {
         // branch misprediction flush
-        Addr memory_to_fetch_target = NO_VAL32;
+        uint32_t memory_to_fetch_target = NO_VAL32;
         bool memory_to_all_flush = false;
 
         bool PC_stage_reg_stall = false;
@@ -50,13 +50,13 @@ private:
         bool EM_stage_reg_stall = false;
 
         // masks of RF registers used at EXE/MEM stages
-        uint32 execute_stage_regs = 0;
-        uint32 memory_stage_regs = 0;
+        uint32_t execute_stage_regs = 0;
+        uint32_t memory_stage_regs = 0;
     } wires;
 
 public:
     PerfSim(char* executable_filename);
-    void run(uint32 n);
+    void run(uint32_t n);
     
     void step();
     

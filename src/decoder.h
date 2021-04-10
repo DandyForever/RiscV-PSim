@@ -1,66 +1,75 @@
 #ifndef DECODER_H
 #define DECODER_H
 
-#include "common.h"
+#include <cassert>
+
 #include "instruction.h"
 #include "rf.h"
+#include "consts.h"
 
 class Decoder {
 private:
     using Format = Instruction::Format;
     const Format format;
 
-    const uint32 rd;
-    const uint32 rs1;
-    const uint32 rs2;
-    const uint32 I_imm;
-    const uint32 S_imm4_0;
-    const uint32 S_imm11_5;
-    const uint32 B_imm4_1;
-    const uint32 B_imm10_5;
-    const uint32 B_imm11;
-    const uint32 B_imm12;
-    const uint32 U_imm31_12;
-    const uint32 J_imm10_1;
-    const uint32 J_imm11;
-    const uint32 J_imm19_12;
-    const uint32 J_imm20;
+    const uint32_t rd;
+    const uint32_t rs1;
+    const uint32_t rs2;
+    const uint32_t I_imm;
+    const uint32_t S_imm4_0;
+    const uint32_t S_imm11_5;
+    const uint32_t B_imm4_1;
+    const uint32_t B_imm10_5;
+    const uint32_t B_imm11;
+    const uint32_t B_imm12;
+    const uint32_t U_imm31_12;
+    const uint32_t J_imm10_1;
+    const uint32_t J_imm11;
+    const uint32_t J_imm19_12;
+    const uint32_t J_imm20;
 
-    uint32 get_I_immediate() const {
+    uint32_t get_I_immediate() const {
         return I_imm;
     }
 
-    uint32 get_S_immediate() const {
+    uint32_t get_S_immediate() const {
         return S_imm4_0
             | (S_imm11_5 << 5);
     }
 
-    uint32 get_B_immediate() const {
+    uint32_t get_B_immediate() const {
         return (B_imm4_1  << 1)
             |  (B_imm10_5 << 5)
             |  (B_imm11   << 11)
             |  (B_imm12   << 12);
     }
 
-    uint32 get_U_immediate() const {
+    uint32_t get_U_immediate() const {
         return (U_imm31_12 << 12);
     }
 
-    uint32 get_J_immediate() const {
+    uint32_t get_J_immediate() const {
         return (J_imm10_1  << 1)
             |  (J_imm11    << 11)
             |  (J_imm19_12 << 12)
             |  (J_imm20    << 20);
     }
 
+    
+    int32_t sign_extend(const int bits, uint32_t x) const{
+        uint32_t m = 1;
+        m <<= bits - 1;
+        return static_cast<int32_t>((x ^ m) - m);
+    }
 
-    uint32 apply_mask(uint32 bytes, uint32 mask) const {
+
+    uint32_t apply_mask(uint32_t bytes, uint32_t mask) const {
         // en.wikipedia.org/wiki/Find_first_set
         return (bytes & mask) >> __builtin_ctz(mask);
     }
 
 public:
-    int32 get_immediate() const {
+    int32_t get_immediate() const {
         switch(format) {
             case Format::R: return NO_VAL32;
             case Format::I: return sign_extend(12, get_I_immediate());
@@ -108,7 +117,7 @@ public:
         }
     }
 
-    Decoder(uint32 raw, Format format) : format(format),
+    Decoder(uint32_t raw, Format format) : format(format),
         rd         (apply_mask(raw, 0b00000000'00000000'00001111'10000000)),
         rs1        (apply_mask(raw, 0b00000000'00001111'10000000'00000000)),
         rs2        (apply_mask(raw, 0b00000001'11110000'00000000'00000000)),

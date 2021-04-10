@@ -14,7 +14,7 @@ FuncSim::FuncSim(char* executable_filename)
 
 void FuncSim::step() {
     // fetch
-    uint32 raw_bytes = this->memory.read_word(this->PC);
+    uint32_t raw_bytes = this->memory.read_word(this->PC);
     // decode
     Instruction instr(raw_bytes, this->PC);
     this->rf.read_sources(instr);
@@ -34,7 +34,7 @@ void FuncSim::step() {
     this->PC = instr.get_new_PC();
 }
 
-void FuncSim::run(uint32 n) {
-    for (uint32 i = 0; i < n; ++i)
+void FuncSim::run(uint32_t n) {
+    for (uint32_t i = 0; i < n; ++i)
         this->step();
 }

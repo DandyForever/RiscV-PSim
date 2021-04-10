@@ -9,4 +9,6 @@ const size_t MEM_LATENCY = 3;
 
 const bool IS_DUMP      = 0;
 
+const uint32_t NO_VAL32  = 0xdeadbeeful;
+
 #endif

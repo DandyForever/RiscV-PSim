@@ -2,34 +2,34 @@
 #include "elf.h"
 
 
-Memory::Memory(std::vector<uint8> data) :
+Memory::Memory(std::vector<uint8_t> data) :
     data(std::move(data))
 { 
     this->data.resize(100000, 0);
 }
 
 
-uint32 Memory::read(Addr addr, size_t num_bytes) const {
+uint32_t Memory::read(uint32_t addr, size_t num_bytes) const {
     if (addr + num_bytes > this->data.size()){
         std::cout << "ADDR" << std::dec << addr+num_bytes << " " << std::endl;
         throw std::invalid_argument("Exceeded memory size");
     }
-    uint32 value = 0;
+    uint32_t value = 0;
     for (uint i = 0; i < num_bytes; ++i) {
-        uint8 byte = this->read_byte(addr + i);
-        value |= static_cast<uint32>(byte) << (8*i);
+        uint8_t byte = this->read_byte(addr + i);
+        value |= static_cast<uint32_t>(byte) << (8*i);
     }
 
     return value;
 }
 
 
-void Memory::write(uint32 value, Addr addr, size_t num_bytes) {
+void Memory::write(uint32_t value, uint32_t addr, size_t num_bytes) {
     if (addr + num_bytes > this->data.size())
         throw std::invalid_argument("Exceeded memory size");
 
     for (uint i = 0; i < num_bytes; ++i) {
-        uint8 byte = static_cast<uint8>(value >> 8*i); 
+        uint8_t byte = static_cast<uint8_t>(value >> 8*i); 
         this->write_byte(byte, addr + i);
     }
 }
@@ -51,7 +51,7 @@ void PerfMemory::process() {
     }
 }
 
-void PerfMemory::send_read_request(Addr addr, size_t num_bytes) {
+void PerfMemory::send_read_request(uint32_t addr, size_t num_bytes) {
     auto& r = this->request;  // alias
 
     if (!r.complete)
@@ -67,7 +67,7 @@ void PerfMemory::send_read_request(Addr addr, size_t num_bytes) {
     r.data = NO_VAL32;
 }
 
-void PerfMemory::send_write_request(uint32 value, Addr addr, size_t num_bytes) {
+void PerfMemory::send_write_request(uint32_t value, uint32_t addr, size_t num_bytes) {
     auto& r = this->request;  // alias
 
     if (!r.complete)

@@ -92,15 +92,15 @@ void PerfSim::step() {
     pipeline_not_empty = false;
 }
 
-void PerfSim::run(uint32 n) {
-    for (uint32 i = 0; i < n; ++i)
+void PerfSim::run(uint32_t n) {
+    for (uint32_t i = 0; i < n; ++i)
         this->step();
 }
 
 void PerfSim::fetch_stage() {
     std::cout << "FETCH:  ";
     static bool awaiting_memory_request = false;
-    static uint32 fetch_data = NO_VAL32;
+    static uint32_t fetch_data = NO_VAL32;
 
     if (wires.FD_stage_reg_stall) {
         std::cout << "BUBBLE" << std::endl;
@@ -126,7 +126,7 @@ void PerfSim::fetch_stage() {
 
     if (!awaiting_memory_request) {
         // send requests to memory
-        Addr addr = PC;
+        uint32_t addr = PC;
         icache.send_read_request(addr, 4);
         awaiting_memory_request = true;
         std::cout << "\tsent request to icache" << std::endl;
@@ -195,11 +195,11 @@ void PerfSim::decode_stage() {
               << std::endl;
 
     // read RF registers mask
-    uint32 decode_stage_regs = \
-        (1 << static_cast<uint32>(data->get_rs1()))
-      | (1 << static_cast<uint32>(data->get_rs2()));
+    uint32_t decode_stage_regs = \
+        (1 << static_cast<uint32_t>(data->get_rs1()))
+      | (1 << static_cast<uint32_t>(data->get_rs2()));
 
-    uint32 hazards = \
+    uint32_t hazards = \
         (decode_stage_regs & wires.execute_stage_regs)
       | (decode_stage_regs & wires.memory_stage_regs);
 
@@ -244,7 +244,7 @@ void PerfSim::execute_stage() {
     pipeline_not_empty = true;
     // actual execution takes place here
     data->execute();
-    wires.execute_stage_regs = (1 << static_cast<uint32>(data->get_rd())); 
+    wires.execute_stage_regs = (1 << static_cast<uint32_t>(data->get_rd())); 
     stage_registers.EXE_MEM.write(data);
 
     std::cout << "0x" << std::hex << data->get_PC() << ": "
@@ -256,7 +256,7 @@ void PerfSim::memory_stage() {
     std::cout << "MEM:    ";
     static uint memory_stage_iterations_complete = 0;
     static bool awaiting_memory_request = false;
-    static uint32 memory_data = NO_VAL32;
+    static uint32_t memory_data = NO_VAL32;
 
     Instruction* data = nullptr;
     data = stage_registers.EXE_MEM.read();
@@ -271,7 +271,7 @@ void PerfSim::memory_stage() {
         return;
     }
     pipeline_not_empty = true;
-    wires.memory_stage_regs = (1 << static_cast<uint32>(data->get_rd())); 
+    wires.memory_stage_regs = (1 << static_cast<uint32_t>(data->get_rd())); 
 
     // memory operations
     if (data->is_load() | data->is_store()) {
@@ -285,7 +285,7 @@ void PerfSim::memory_stage() {
 
         if (!awaiting_memory_request) {
             // send requests to memory
-            Addr addr = data->get_memory_addr() + (memory_stage_iterations_complete * 2);
+            uint32_t addr = data->get_memory_addr() + (memory_stage_iterations_complete * 2);
             size_t num_bytes = (data->get_memory_size() == 1) ? 1 : 2;
 
             if (data->is_load()) {

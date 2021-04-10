@@ -1,7 +1,7 @@
 #include "cache.h"
 #include <sstream>
 
-LRUInfo::LRUInfo(Size num_ways, Size num_sets) :
+LRUInfo::LRUInfo(uint32_t num_ways, uint32_t num_sets) :
     lru(num_sets)
 {
     std::list<Way> l(num_ways);
@@ -25,30 +25,30 @@ Way LRUInfo::get_LRU_way(Set set) {
     return list.back();
 }
 
-uint32 Cache::Line::read_bytes(Addr offset, Size num_bytes) {
+uint32_t Cache::Line::read_bytes(uint32_t offset, uint32_t num_bytes) {
     assert(offset + num_bytes <= this->data.size());
 
-    uint32 value = 0;
+    uint32_t value = 0;
     for (uint i = 0; i < num_bytes; ++i) {
-        uint8 byte = this->data[offset + i];
-        value |= static_cast<uint32>(byte) << (8*i);
+        uint8_t byte = this->data[offset + i];
+        value |= static_cast<uint32_t>(byte) << (8*i);
     }
     return value;
 }
 
-void Cache::Line::write_bytes(uint32 value, Addr offset, Size num_bytes) {
+void Cache::Line::write_bytes(uint32_t value, uint32_t offset, uint32_t num_bytes) {
     assert(offset + num_bytes <= this->data.size());
 
     for (uint i = 0; i < num_bytes; ++i) {
-        uint8 byte = static_cast<uint8>(value >> 8*i); 
+        uint8_t byte = static_cast<uint8_t>(value >> 8*i); 
         this->data[offset + i] = byte;
     }
 }
 
 Cache::Cache(PerfMemory& memory,
-             Size num_ways,
-             Size num_sets,
-             Size line_size_in_bytes)
+             uint32_t num_ways,
+             uint32_t num_sets,
+             uint32_t line_size_in_bytes)
     : memory(memory)
     , num_sets(num_sets)
     , line_size_in_bytes(line_size_in_bytes)
@@ -64,7 +64,7 @@ void Cache::process_hit(Way way) {
     Line& line = this->array[way][set];
     assert(line.is_valid);
 
-    Addr offset = this->get_line_offset(r.addr);
+    uint32_t offset = this->get_line_offset(r.addr);
     if (r.is_read) {
         r.data = line.read_bytes(offset, r.num_bytes);
     }
@@ -181,7 +181,7 @@ void Cache::process() {
 }
 
 
-std::pair<bool, Way> Cache::lookup(Addr addr) {
+std::pair<bool, Way> Cache::lookup(uint32_t addr) {
     const auto set = this->get_set(addr);
     const auto tag = this->get_tag(addr);
     for (uint way = 0; way < this->array.size(); ++way) {
@@ -193,7 +193,7 @@ std::pair<bool, Way> Cache::lookup(Addr addr) {
     return {false, NO_VAL32};
 }
 
-void Cache::send_read_request(Addr addr, Size num_bytes) {
+void Cache::send_read_request(uint32_t addr, uint32_t num_bytes) {
     auto& r = this->request;  // alias
 
     if (!r.complete)
@@ -215,7 +215,7 @@ void Cache::send_read_request(Addr addr, Size num_bytes) {
     this->process_called_this_cycle = true;
 }
 
-void Cache::send_write_request(uint32 value, Addr addr, Size num_bytes) {
+void Cache::send_write_request(uint32_t value, uint32_t addr, uint32_t num_bytes) {
     auto& r = this->request;  // alias
 
     if (!r.complete)

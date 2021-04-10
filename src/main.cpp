@@ -1,5 +1,6 @@
 #include "perfsim.h"
 #include "funcsim.h"
+#include <iostream>
 
 int main(int argc, char** argv) {
     if (argc < 3) {

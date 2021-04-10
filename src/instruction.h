@@ -1,8 +1,12 @@
 #ifndef INSTRUCTION_H
 #define INSTRUCTION_H
 
-#include "common.h"
+#include <cassert>
+#include <vector>
+#include <iostream>
+
 #include "register.h"
+#include "consts.h"
 
 class Instruction {
 public:
@@ -25,8 +29,8 @@ public:
 
 private:
     // PC
-    const Addr PC = NO_VAL32;
-    Addr new_PC = NO_VAL32;
+    const uint32_t PC = NO_VAL32;
+    uint32_t new_PC = NO_VAL32;
 
     // main info
     bool complete = false;
@@ -40,20 +44,20 @@ private:
     Register rd  = Register::zero();
 
     // registers values
-    uint32 rs1_v = NO_VAL32;
-    uint32 rs2_v = NO_VAL32;
-    uint32 rd_v  = NO_VAL32;
+    uint32_t rs1_v = NO_VAL32;
+    uint32_t rs2_v = NO_VAL32;
+    uint32_t rd_v  = NO_VAL32;
     
     // immediate
-    int32 imm_v = NO_VAL32;
+    int32_t imm_v = NO_VAL32;
 
     // for loads/stores
-    Addr memory_addr = NO_VAL32;
-    Size memory_size = NO_VAL32;
+    uint32_t memory_addr = NO_VAL32;
+    uint32_t memory_size = NO_VAL32;
 
 public:
     // constructors
-    explicit Instruction(uint32 bytes, Addr PC);
+    explicit Instruction(uint32_t bytes, uint32_t PC);
     Instruction(const Instruction& other);
     Instruction() = delete;
 
@@ -69,20 +73,20 @@ public:
     bool is_jump () const { return (type == Type::JUMP); }
     bool is_branch () const { return (type == Type::BRANCH); }
     
-    void set_rs1_v (uint32 value) { rs1_v = value; }
-    void set_rs2_v (uint32 value) { rs2_v = value; }
-    void set_rd_v  (uint32 value) {  rd_v = value; }
+    void set_rs1_v (uint32_t value) { rs1_v = value; }
+    void set_rs2_v (uint32_t value) { rs2_v = value; }
+    void set_rd_v  (uint32_t value) {  rd_v = value; }
 
-    uint32 get_rs1_v () const { return rs1_v; }
-    uint32 get_rs2_v () const { return rs2_v; }
-    uint32 get_rd_v  () const { return  rd_v; }
-    int32  get_imm_v () const { return imm_v; }
+    uint32_t get_rs1_v () const { return rs1_v; }
+    uint32_t get_rs2_v () const { return rs2_v; }
+    uint32_t get_rd_v  () const { return  rd_v; }
+    int32_t  get_imm_v () const { return imm_v; }
 
-    Addr get_PC      () const { return PC;     }
-    Addr get_new_PC  () const { return new_PC; }
+    uint32_t get_PC      () const { return PC;     }
+    uint32_t get_new_PC  () const { return new_PC; }
 
-    Addr get_memory_addr() const { return memory_addr; }
-    Size get_memory_size() const { return memory_size; }
+    uint32_t get_memory_addr() const { return memory_addr; }
+    uint32_t get_memory_size() const { return memory_size; }
 
     // representation
     const std::string get_name() const { return name; }

@@ -2,7 +2,6 @@
 #define REGISTER_H
 
 #include <array>
-#include "common.h"
 
 class Register {
 public:
@@ -30,7 +29,7 @@ public:
     const std::string get_name() const { return "$" + this->names_table[this->id()]; }
 
     Register(Number number) : number(number) { };
-    Register(uint8 number) : number(static_cast<Number>(number)) { };
+    Register(uint8_t number) : number(static_cast<Number>(number)) { };
 
     size_t id() const { return static_cast<size_t>(this->number); }
     static Register zero() { return Register(Number::zero); }

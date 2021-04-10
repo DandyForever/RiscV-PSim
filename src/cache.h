@@ -1,15 +1,17 @@
 #ifndef CACHE_H
 #define CACHE_H
 
-#include "common.h"
 #include "memory.h"
+#include "consts.h"
 
 #include <list>
 #include <queue>
 #include <numeric>
+#include <iostream>
+#include <cassert>
 
-using Set = uint32;
-using Way = uint32;
+using Set = uint32_t;
+using Way = uint32_t;
 
 class LRUInfo {
 private:
@@ -20,7 +22,7 @@ private:
     > lru;
 
 public:
-    LRUInfo(Size ways, Size sets);
+    LRUInfo(uint32_t ways, uint32_t sets);
 
     // make given way most recently used within set
     void touch(Set set, Way way);
@@ -33,32 +35,32 @@ class Cache {
 public:
     struct RequestResult {
         bool is_ready = false;
-        uint32 data = NO_VAL32;
+        uint32_t data = NO_VAL32;
     };
 
 private:
     // single cache line
     struct Line {
-        std::vector<uint8> data;
-        Addr addr = NO_VAL32;
+        std::vector<uint8_t> data;
+        uint32_t addr = NO_VAL32;
         bool is_valid = false;
         bool is_dirty = false;
 
 
-        Line(Size size_in_bytes) :
+        Line(uint32_t size_in_bytes) :
             data(size_in_bytes)
         { }
 
-        uint32 read_bytes(Addr offset, Size num_bytes);
-        void write_bytes(uint32 value, Addr offset, Size num_bytes);
+        uint32_t read_bytes(uint32_t offset, uint32_t num_bytes);
+        void write_bytes(uint32_t value, uint32_t offset, uint32_t num_bytes);
     };
 
     // underlying memory (or next-level cache)
     PerfMemory& memory;
     
     // cache params
-    Size num_sets;
-    Size line_size_in_bytes;
+    uint32_t num_sets;
+    uint32_t line_size_in_bytes;
 
     // main array of lines
     std::vector<  // way
@@ -74,21 +76,21 @@ private:
     struct Request {
         bool complete = true;
         bool is_read = false;
-        Addr addr = NO_VAL32;
-        uint32 data = NO_VAL32;
-        Size num_bytes = NO_VAL32;
+        uint32_t addr = NO_VAL32;
+        uint32_t data = NO_VAL32;
+        uint32_t num_bytes = NO_VAL32;
     };
 
     // line read/write request to memory
     struct LineRequest {
         bool is_read = false;
         bool awaiting_memory_request = false;
-        Addr addr = NO_VAL32;
+        uint32_t addr = NO_VAL32;
         Set set = NO_VAL32;
         Way way = NO_VAL32;
-        Size bytes_processed = 0;
+        uint32_t bytes_processed = 0;
 
-        LineRequest(Addr addr, Set set, Way way, bool is_read)
+        LineRequest(uint32_t addr, Set set, Way way, bool is_read)
             : is_read(is_read)
             , addr(addr)
             , set(set)
@@ -111,24 +113,24 @@ private:
     void process_line_requests();
 
     // helper functions
-    uint get_set(Addr addr) const { return (addr / line_size_in_bytes) & (num_sets - 1); }
-    Addr get_tag(Addr addr) const { return (addr / line_size_in_bytes); }
-    /*Addr get_line_addr(Addr addr) const { return addr & ~(this->line_size_in_bytes - 1); }
-    Addr get_line_offset(Addr addr) const { return addr & (this->line_size_in_bytes - 1); }*/
-    Addr get_line_addr(Addr addr) const { return addr - get_line_offset(addr); }
-    Addr get_line_offset(Addr addr) const { return addr % this->line_size_in_bytes; }
+    uint get_set(uint32_t addr) const { return (addr / line_size_in_bytes) & (num_sets - 1); }
+    uint32_t get_tag(uint32_t addr) const { return (addr / line_size_in_bytes); }
+    /*uint32_t get_line_addr(uint32_t addr) const { return addr & ~(this->line_size_in_bytes - 1); }
+    uint32_t get_line_offset(uint32_t addr) const { return addr & (this->line_size_in_bytes - 1); }*/
+    uint32_t get_line_addr(uint32_t addr) const { return addr - get_line_offset(addr); }
+    uint32_t get_line_offset(uint32_t addr) const { return addr % this->line_size_in_bytes; }
     // check whether particular address is present in cache
-    std::pair<bool, Way> lookup(Addr addr);
+    std::pair<bool, Way> lookup(uint32_t addr);
 
 public:
     Cache(PerfMemory& memory,
-          Size num_ways,
-          Size num_sets,
-          Size line_size_in_bytes);
+          uint32_t num_ways,
+          uint32_t num_sets,
+          uint32_t line_size_in_bytes);
     void clock();
     bool is_busy() { return !request.complete; }
-    void send_read_request(Addr addr, Size num_bytes);
-    void send_write_request(uint32 value, Addr addr, Size num_bytes);
+    void send_read_request(uint32_t addr, uint32_t num_bytes);
+    void send_write_request(uint32_t value, uint32_t addr, uint32_t num_bytes);
     RequestResult get_request_status();
 };
 
