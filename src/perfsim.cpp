@@ -3,16 +3,13 @@
 
 PerfSim::PerfSim(char* executable_filename)
     : elfManager(executable_filename)
-    , memory(elfManager.getWords(), MEM_LATENCY)
-    , icache(memory, CACHE_WAY, CACHE_SET, CACHE_LINE)
-    , dcache(memory, CACHE_WAY, CACHE_SET, CACHE_LINE)
+    , mmu(elfManager.getWords())
     , rf()
     , PC(elfManager.getPC())
     , clocks(0)
     , ops(0)
 {
-    // setup stack
-    rf.set_stack_pointer(memory.get_stack_pointer());
+    rf.set_stack_pointer(mmu.memory.get_stack_pointer());
     rf.validate(Register::Number::s0);
     rf.validate(Register::Number::ra);
     rf.validate(Register::Number::s1);
@@ -21,15 +18,13 @@ PerfSim::PerfSim(char* executable_filename)
 }
 
 void PerfSim::step() {
-    memory.clock();
-    icache.clock();
-    dcache.clock();
+    mmu.clock();
 
-    this->writeback_stage();
-    this->memory_stage();
-    this->execute_stage();
-    this->decode_stage();
-    this->fetch_stage();
+    writeback_stage();
+    memory_stage();
+    execute_stage();
+    decode_stage();
+    fetch_stage();
     
     rf.dump();
     clocks++;
@@ -72,30 +67,13 @@ void PerfSim::fetch_stage() {
 
     std::cout << std::hex << "PC: " << PC << std::endl;
 
-    if (icache.is_busy()) {
+    if (mmu.is_icache_busy()) {
         std::cout << "\tWAITING FOR ICACHE" << std::endl;
         stage_registers.FETCH_DECODE.write(nullptr);
         return;
     }
 
-    if (!awaiting_memory_request) {
-        // send requests to memory
-        uint32_t addr = PC;
-        icache.send_read_request(addr, 4);
-        awaiting_memory_request = true;
-        std::cout << "\tRequest to ICACHE sent" << std::endl;
-    }
-
-    auto status = icache.get_request_status();
-    bool fetch_complete = false;
-    if (status.is_ready) {
-        fetch_data = status.data;
-
-        std::cout << "\tFeedback from ICACHE recieved" << std::endl;
-        
-        awaiting_memory_request = false;
-        fetch_complete = true;
-    }
+    bool fetch_complete = mmu.fetch(awaiting_memory_request, PC, fetch_data);
 
     if (fetch_complete) {
         if ((fetch_data == 0 ) | (fetch_data == NO_VAL32)) {
@@ -203,7 +181,7 @@ void PerfSim::memory_stage() {
     hu.set_reg_memory(static_cast<uint32_t>(data->get_rd()));
 
     if (data->is_load() | data->is_store()) {
-        if (dcache.is_busy()) {
+        if (mmu.dcache.is_busy()) {
             std::cout << "WAITING FOR DCACHE" << std::endl;
             hu.set_stall_memory();
             stage_registers.MEM_WB.write(nullptr);
@@ -214,25 +192,19 @@ void PerfSim::memory_stage() {
             uint32_t addr = data->get_memory_addr() + (memory_stage_iterations_complete * 2);
             size_t num_bytes = (data->get_memory_size() == 1) ? 1 : 2;
 
-            if (data->is_load()) {
-                std::cout << "READING at " << std::hex << addr << std::endl;
-                dcache.send_read_request(addr, num_bytes);
-            }
+            if (data->is_load())
+                mmu.process_load(addr, num_bytes);
 
             if (data->is_store()) {
                 memory_data = data->get_rs2_v();
-                std::cout << "WRITING " << std::hex << memory_data << " at " << std::hex << addr << std::endl;
-                if (memory_stage_iterations_complete == 0)
-                    dcache.send_write_request(memory_data, addr, num_bytes);
-                else
-                    dcache.send_write_request(memory_data >> 16, addr, num_bytes);
+                mmu.process_store(memory_data, addr, num_bytes, memory_stage_iterations_complete == 0);
             }
 
             awaiting_memory_request = true;
             std::cout << "\tRequest to DCACHE sent" << std::endl;
         }
 
-        auto request = dcache.get_request_status();
+        auto request = mmu.memory_request_status();
 
         if (request.is_ready) {
             if (data->is_load()) {
@@ -254,8 +226,7 @@ void PerfSim::memory_stage() {
             memory_stage_iterations_complete = 0;
             data->set_rd_v(memory_data);
         } else {
-            std::cout << "\tmemory_stage_iterations_complete: "
-                      << memory_stage_iterations_complete << std::endl;
+            std::cout << "\tMemory stage iterations complete: " << memory_stage_iterations_complete << std::endl;
             hu.set_stall_memory();
             stage_registers.MEM_WB.write(nullptr);
             return;
