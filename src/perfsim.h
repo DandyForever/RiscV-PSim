@@ -32,10 +32,10 @@ private:
     bool multiple_stall = false;
 
     struct StageRegisterStore {
-        StageRegister<Instruction> FETCH_DECODE;
-        StageRegister<Instruction> DECODE_EXE;
-        StageRegister<Instruction> EXE_MEM;
-        StageRegister<Instruction> MEM_WB;
+        StageRegister FETCH_DECODE;
+        StageRegister DECODE_EXE;
+        StageRegister EXE_MEM;
+        StageRegister MEM_WB;
     } stage_registers;
 
     // used for feedback from later stages to earlier stages 
