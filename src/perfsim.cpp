@@ -1,13 +1,12 @@
 #include "perfsim.h"
 #include "consts.h"
 
-PerfSim::PerfSim(char* executable_filename)
-    : elfManager(executable_filename)
-    , mmu(elfManager.getWords())
-    , rf()
-    , PC(elfManager.getPC())
-    , clocks(0)
-    , ops(0)
+PerfSim::PerfSim(std::vector<uint8_t>& data, uint32_t PC): 
+    mmu(data),
+    rf(),
+    PC(PC),
+    clocks(0),
+    ops(0)
 {
     rf.set_stack_pointer(mmu.memory.get_stack_pointer());
     rf.validate(Register::Number::s0);

@@ -1,12 +1,10 @@
 #include "funcsim.h"
 
-FuncSim::FuncSim(char* executable_filename)
-    : elfManager(executable_filename)
-    , memory(elfManager.getWords())
-    , rf()
-    , PC(elfManager.getPC())
+FuncSim::FuncSim(std::vector<uint8_t>& data, uint32_t PC):
+    memory(data),
+    rf(),
+    PC(PC)
 {
-    // setup stack
     rf.set_stack_pointer(memory.get_stack_pointer());
     rf.validate(Register::Number::s0);
     rf.validate(Register::Number::ra);
@@ -14,27 +12,26 @@ FuncSim::FuncSim(char* executable_filename)
 
 void FuncSim::step() {
     // fetch
-    uint32_t raw_bytes = this->memory.read_word(this->PC);
+    uint32_t raw_bytes = memory.read_word(PC);
     // decode
-    Instruction instr(raw_bytes, this->PC);
-    this->rf.read_sources(instr);
+    Instruction instr(raw_bytes, PC);
+    rf.read_sources(instr);
     // execute
     instr.execute();
     // memory
-    this->memory.load_store(instr);
+    memory.load_store(instr);
     // writeback
-    this->rf.writeback(instr);
+    rf.writeback(instr);
 
-    // let's start with this and improve when needed
-    std::cout << "0x" << std::hex << this->PC << ": "
+    std::cout << "0x" << std::hex << PC << ": "
               << instr.get_disasm() << " "
               << "(0x" << std::hex << raw_bytes << ")" << std::endl;
-    this->rf.dump();
+    rf.dump();
 
-    this->PC = instr.get_new_PC();
+    PC = instr.get_new_PC();
 }
 
 void FuncSim::run(uint32_t n) {
     for (uint32_t i = 0; i < n; ++i)
-        this->step();
+        step();
 }

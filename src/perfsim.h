@@ -5,17 +5,16 @@
 #include "mmu.h"
 #include "stage_register.h"
 #include "elf.h"
-#include "elf_manager.h"
 #include "consts.h"
 #include "hazard_unit.h"
 
 class PerfSim {
 private:
-    ElfManager elfManager;
     MMU mmu;
     RF rf;
     HazardUnit hu;
     uint32_t PC;
+    
     uint32_t clocks;
     uint32_t ops;
 
@@ -27,7 +26,7 @@ private:
     } stage_registers;
 
 public:
-    PerfSim(char* executable_filename);
+    PerfSim(std::vector<uint8_t>& data, uint32_t PC);
     void run(uint32_t n);
     
     void step();
