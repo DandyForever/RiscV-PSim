@@ -7,21 +7,53 @@
 using Format = Instruction::Format;
 using Type = Instruction::Type;
 
-struct ISAEntryGenerated {
+struct InstSetItem {
     std::string name;
     uint32_t match;
     uint32_t mask;
     Instruction::Executor function;
 };
 
-#define DECLARE_INSN(name, match, mask) \
-static const ISAEntryGenerated ISA_entry_generated_ ## name = \
-{ #name, match, mask, &Instruction::execute_ ## name};
-#include "opcodes.gen.h"
-#undef DECLARE_INSN
+static const InstSetItem inst_lui = {"lui", 0x37, 0x7f, &Instruction::execute_lui};
+static const InstSetItem inst_auipc = {"auipc", 0x17, 0x7f, &Instruction::execute_auipc};
+static const InstSetItem inst_addi = {"addi", 0x13, 0x707f, &Instruction::execute_addi};
+static const InstSetItem inst_slli = {"slli", 0x1013, 0xfc00707f, &Instruction::execute_slli};
+static const InstSetItem inst_slti = {"slti", 0x2013, 0x707f, &Instruction::execute_slti};
+static const InstSetItem inst_jal = {"jal", 0x6f, 0x7f, &Instruction::execute_jal};
+static const InstSetItem inst_jalr = {"jalr", 0x67, 0x707f, &Instruction::execute_jalr};
+static const InstSetItem inst_beq = {"beq", 0x63, 0x707f, &Instruction::execute_beq};
+static const InstSetItem inst_bne = {"bne", 0x1063, 0x707f, &Instruction::execute_bne};
+static const InstSetItem inst_blt = {"blt", 0x4063, 0x707f, &Instruction::execute_blt};
+static const InstSetItem inst_bge = {"bge", 0x5063, 0x707f, &Instruction::execute_bge};
+static const InstSetItem inst_bltu = {"bltu", 0x6063, 0x707f, &Instruction::execute_bltu};
+static const InstSetItem inst_bgeu = {"bgeu", 0x7063, 0x707f, &Instruction::execute_bgeu};
+static const InstSetItem inst_lb = {"lb", 0x3, 0x707f, &Instruction::execute_lb};
+static const InstSetItem inst_lh = {"lh", 0x1003, 0x707f, &Instruction::execute_lh};
+static const InstSetItem inst_lw = {"lw", 0x2003, 0x707f, &Instruction::execute_lw};
+static const InstSetItem inst_lbu = {"lbu", 0x4003, 0x707f, &Instruction::execute_lbu};
+static const InstSetItem inst_lhu = {"lhu", 0x5003, 0x707f, &Instruction::execute_lhu};
+static const InstSetItem inst_sb = {"sb", 0x23, 0x707f, &Instruction::execute_sb};
+static const InstSetItem inst_sh = {"sh", 0x1023, 0x707f, &Instruction::execute_sh};
+static const InstSetItem inst_sw = {"sw", 0x2023, 0x707f, &Instruction::execute_sw};
+static const InstSetItem inst_sltiu = {"sltiu", 0x3013, 0x707f, &Instruction::execute_sltiu};
+static const InstSetItem inst_xori = {"xori", 0x4013, 0x707f, &Instruction::execute_xori};
+static const InstSetItem inst_ori = {"ori", 0x6013, 0x707f, &Instruction::execute_ori};
+static const InstSetItem inst_andi = {"andi", 0x7013, 0x707f, &Instruction::execute_andi};
+static const InstSetItem inst_srai = {"srai", 0x40005013, 0xfc00707f, &Instruction::execute_srai};
+static const InstSetItem inst_srli = {"srli", 0x5013, 0xfc00707f, &Instruction::execute_srli};
+static const InstSetItem inst_add = {"add", 0x33, 0xfe00707f, &Instruction::execute_add};
+static const InstSetItem inst_sub = {"sub", 0x40000033, 0xfe00707f, &Instruction::execute_sub};
+static const InstSetItem inst_sll = {"sll", 0x1033, 0xfe00707f, &Instruction::execute_sll};
+static const InstSetItem inst_slt = {"slt", 0x2033, 0xfe00707f, &Instruction::execute_slt};
+static const InstSetItem inst_sltu = {"sltu", 0x3033, 0xfe00707f, &Instruction::execute_sltu};
+static const InstSetItem inst_xor = {"xor", 0x4033, 0xfe00707f, &Instruction::execute_xor};
+static const InstSetItem inst_or = {"or", 0x6033, 0xfe00707f, &Instruction::execute_or};
+static const InstSetItem inst_and = {"and", 0x7033, 0xfe00707f, &Instruction::execute_and};
+static const InstSetItem inst_sra = {"sra", 0x40005033, 0xfe00707f, &Instruction::execute_sra};
+static const InstSetItem inst_srl = {"srl", 0x5033, 0xfe00707f, &Instruction::execute_srl};
 
-struct ISAEntry {
-    ISAEntryGenerated generated_entry;
+struct InstSet {
+    InstSetItem generated_entry;
     Format format;
     size_t memory_size;
     Type type;
@@ -33,7 +65,7 @@ struct ISAEntry {
 
 
 #define I(name) \
-ISA_entry_generated_ ## name
+inst_ ## name
 
 #define F(format) \
 Instruction::Format::format
@@ -41,7 +73,7 @@ Instruction::Format::format
 #define T(type) \
 Instruction::Type::type
 
-static const std::vector<ISAEntry> ISA_table = {
+static const std::vector<InstSet> instSet = {
    { I(lui),     F(U),     0,    T(ARITHM) },
    { I(auipc),   F(U),     0,    T(ARITHM) },
    { I(jal),     F(J),     0,    T(JUMP) },
@@ -57,7 +89,6 @@ static const std::vector<ISAEntry> ISA_table = {
    { I(lw),      F(I),     4,    T(LOAD) },
    { I(lbu),     F(I),     1,    T(LOADU) },
    { I(lhu),     F(I),     2,    T(LOADU) },
-   { I(lwu),     F(I),     4,    T(LOADU) },
    { I(sb),      F(S),     1,    T(STORE) },
    { I(sh),      F(S),     2,    T(STORE) },
    { I(sw),      F(S),     4,    T(STORE) },
@@ -83,8 +114,8 @@ static const std::vector<ISAEntry> ISA_table = {
 };
 
 
-const ISAEntry find_entry(uint32_t raw) {
-    for (const auto& x : ISA_table) {
+const InstSet find_entry(uint32_t raw) {
+    for (const auto& x : instSet) {
         if (x.match(raw))
             return x;
     }
@@ -96,7 +127,7 @@ Instruction::Instruction(uint32_t bytes, uint32_t PC) :
     PC(PC),
     new_PC(PC + 4)
 {
-    ISAEntry entry = find_entry(bytes);
+    InstSet entry = find_entry(bytes);
 
     name  = entry.generated_entry.name;
     format = entry.format;
@@ -104,7 +135,6 @@ Instruction::Instruction(uint32_t bytes, uint32_t PC) :
     function  = entry.generated_entry.function;
     memory_size = entry.memory_size;
 
-    //Decoder decoder(bytes, format);
     Decoder decoder;
     decoder.Decode(bytes);
     rs1   = decoder.get_rs1();

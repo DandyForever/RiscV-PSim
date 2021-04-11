@@ -82,11 +82,43 @@ public:
 
     void execute();
     void execute_unknown();
-
-#define DECLARE_INSN(name, match, mask) \
-void execute_ ## name ();
-#include "opcodes.gen.h"
-#undef DECLARE_INSN
+    void execute_lui();
+    void execute_auipc();
+    void execute_jal();
+    void execute_jalr();
+    void execute_beq();
+    void execute_bne();
+    void execute_blt();
+    void execute_bge();
+    void execute_bltu();
+    void execute_bgeu();
+    void execute_lb();
+    void execute_lh();
+    void execute_lw();
+    void execute_lbu();
+    void execute_lhu();
+    void execute_sb();
+    void execute_sh();
+    void execute_sw();
+    void execute_addi();
+    void execute_slti();
+    void execute_sltiu();
+    void execute_xori();
+    void execute_ori();
+    void execute_andi();
+    void execute_slli();
+    void execute_srai();
+    void execute_srli();
+    void execute_add();
+    void execute_sub();
+    void execute_sll();
+    void execute_slt();
+    void execute_sltu();
+    void execute_xor();
+    void execute_or();
+    void execute_and();
+    void execute_sra();
+    void execute_srl();
 
     Executor function = &Instruction::execute_unknown;
 };
