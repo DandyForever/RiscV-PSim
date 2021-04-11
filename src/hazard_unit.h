@@ -50,6 +50,8 @@ public:
     uint32_t handle_mispredict_fetch(uint32_t PC, bool& is_request);
     bool is_mispredict() { return memory_to_all_flush; }
     void set_mispredict(uint32_t PC);
+    
+    uint32_t get_real_PC() { return memory_to_fetch_target; }
 
     bool is_data_hazard_decode(uint32_t rs1, uint32_t rs2);
     void set_stall_memory();

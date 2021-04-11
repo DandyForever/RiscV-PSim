@@ -1,13 +1,6 @@
 #include "hazard_unit.h"
 
 void HazardUnit::update_stats() {
-    std::cout << "STALLS: "
-              << FD_stage_reg_stall
-              << DE_stage_reg_stall
-              << EM_stage_reg_stall
-              << std::endl;
-
-
     is_any_stall = (static_cast<int>(is_branch_mispredict) + static_cast<int>(is_fetch_stall) + static_cast<int>(is_memory_stall) + static_cast<int>(is_data_stall)) > 1;
     if (is_any_stall) {
         latency_total++;
@@ -25,6 +18,7 @@ void HazardUnit::update_stats() {
 }
 
 void HazardUnit::print_stats(const uint32_t cycles, const uint32_t instructions) const {
+    std::cout << "\nStats summary:" << std::endl;
     if (instructions > 0)
         std::cout << "CPI: " << cycles * 1.0 / instructions << std::endl;
     std::cout << std::dec << "Cycles: " << cycles << std::endl;
@@ -32,8 +26,6 @@ void HazardUnit::print_stats(const uint32_t cycles, const uint32_t instructions)
     std::cout << "Data dependency stalls: " << latency_data_dependency << std::endl;
     std::cout << "Memory latency: " << latency_memory << std::endl;
     std::cout << "Misprediction penalty: " << mispredict_penalty << std::endl;
-    std::cout << "Total stalls: " << latency_total << std::endl;
-    std::cout << std::string(50, '|') << std::endl << std::endl;
 }
 
 void HazardUnit::reset() {

@@ -1,6 +1,4 @@
 #include "memory.h"
-#include "elf.h"
-
 
 Memory::Memory(std::vector<uint8_t> data) :
     data(std::move(data))

@@ -7,6 +7,7 @@
 #include "elf.h"
 #include "consts.h"
 #include "hazard_unit.h"
+#include "visualizer.h"
 
 class PerfSim {
 private:
@@ -14,6 +15,8 @@ private:
     RF rf;
     HazardUnit hu;
     uint32_t PC;
+
+    Visualizer visual;
     
     uint32_t clocks;
     uint32_t ops;

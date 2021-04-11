@@ -26,12 +26,11 @@ void PerfSim::step() {
     fetch_stage();
     
     rf.dump();
-    //mmu.dump();
+    mmu.dump();
     clocks++;
 
     hu.update_stats();
 
-    hu.print_stats(clocks, ops);
     
     if (!hu.is_stall_FD())
         latch.FETCH_DECODE.clock();
@@ -49,55 +48,67 @@ void PerfSim::step() {
 
 void PerfSim::run(uint32_t n) {
     while (ops < n)
-        this->step();
+        step();
+
+    visual.print_file();
+    hu.print_stats(clocks, ops);
 }
 
 void PerfSim::fetch_stage() {
-    std::cout << "FETCH:     ";
+    Visualizer::Record record;
     static bool awaiting_memory_request = false;
     static uint32_t fetch_data = NO_VAL32;
 
     if (hu.check_stall_FD()) {
-        std::cout << "STALLED" << std::endl;
+        record.is_stall = true;
+        visual.record_fetch(record);
         latch.FETCH_DECODE.write(nullptr);
         return;
     }
     
-    PC = hu.handle_mispredict_fetch(PC, awaiting_memory_request);
+    if (hu.is_mispredict()) {
+        awaiting_memory_request = false;
+        record.is_flush = true;
+        PC = hu.get_real_PC();
+    }
 
-    std::cout << std::hex << "PC: " << PC << std::endl;
+    record.PC = PC;
 
     if (mmu.is_icache_busy()) {
-        std::cout << "\tWAITING FOR ICACHE" << std::endl;
+        record.is_icache = true;
         latch.FETCH_DECODE.write(nullptr);
+        visual.record_fetch(record);
         return;
     }
 
     bool fetch_complete = mmu.fetch(awaiting_memory_request, PC, fetch_data);
 
+    record.raw_bytes = fetch_data;
+
     if (fetch_complete) {
         if ((fetch_data == 0 ) | (fetch_data == NO_VAL32)) {
             latch.FETCH_DECODE.write(nullptr);
-            std::cout << "Empty" << std::endl;
+            record.is_empty = true;
         } else {
             hu.set_pipe_not_empty();
             Instruction* data = new Instruction(fetch_data, PC);
-            std::cout << "\t0x" << std::hex << data->get_PC() << ": "
-                      << data->get_disasm() << " "
-                      << std::endl;
+            record.instr = data->get_disasm();
 
             latch.FETCH_DECODE.write(data);
             PC = PC + 4;
         }
     } else {
         latch.FETCH_DECODE.write(nullptr);
+        record.is_icache = true;
         hu.set_stall_fetch();
     }
+    
+    visual.record_fetch(record);
 }
 
 
 void PerfSim::decode_stage() {
-    std::cout << "DECODE:    ";
+    Visualizer::Record record;
 
     Instruction* data = nullptr;
     data = latch.FETCH_DECODE.read();
@@ -106,18 +117,22 @@ void PerfSim::decode_stage() {
 
     if (hu.is_mispredict()) {
         latch.DECODE_EXE.write(nullptr);
-        std::cout << "FLUSH" << std::endl;
+        record.is_flush = true;
         if (data != nullptr) delete data;
+        visual.record_decode(record);
         return;
     }
 
     if (data == nullptr) {
         latch.DECODE_EXE.write(nullptr);
-        std::cout << "STALLED" << std::endl;
+        record.is_stall = true;
+        visual.record_decode(record);
         return;
     }
     hu.set_pipe_not_empty();
-    std::cout << "0x" << std::hex << data->get_PC() << ": " << data->get_disasm() << " " << std::endl;
+
+    record.PC = data->get_PC();
+    record.instr = data->get_disasm();
 
     if (hu.is_data_hazard_decode(static_cast<uint32_t>(data->get_rs1()), static_cast<uint32_t>(data->get_rs2())))
         latch.DECODE_EXE.write(nullptr);
@@ -126,13 +141,12 @@ void PerfSim::decode_stage() {
         latch.DECODE_EXE.write(data);
     }
 
-    std::cout << "\tRead from RF: " << data->get_rs1() << " " \
-              << data->get_rs2() << std::endl;
+    visual.record_decode(record);
 }
 
 
 void PerfSim::execute_stage() {
-    std::cout << "EXECUTE:   ";
+    Visualizer::Record record;
 
     Instruction* data = nullptr;
     data = latch.DECODE_EXE.read();
@@ -141,14 +155,16 @@ void PerfSim::execute_stage() {
 
     if (hu.is_mispredict()) {
         latch.EXE_MEM.write(nullptr);
-        std::cout << "FLUSH" << std::endl;
+        record.is_flush = true;
+        visual.record_execute(record);
         if (data != nullptr) delete data;
         return;
     }
 
     if (data == nullptr) {
         latch.EXE_MEM.write(nullptr);
-        std::cout << "STALLED" << std::endl;
+        record.is_stall = true;
+        visual.record_execute(record);
         return;
     }
     hu.set_pipe_not_empty();
@@ -158,11 +174,14 @@ void PerfSim::execute_stage() {
     hu.set_reg_execute(static_cast<uint32_t>(data->get_rd()));
     latch.EXE_MEM.write(data);
 
-    std::cout << "0x" << std::hex << data->get_PC() << ": " << data->get_disasm() << " "<< std::endl;
+    record.PC = data->get_PC();
+    record.instr = data->get_disasm();
+
+    visual.record_execute(record);
 }
 
 void PerfSim::memory_stage() {
-    std::cout << "MEMORY:    ";
+    Visualizer::Record record;
     static uint32_t memory_stage_iterations_complete = 0;
     static bool awaiting_memory_request = false;
     static uint32_t memory_data = NO_VAL32;
@@ -174,17 +193,22 @@ void PerfSim::memory_stage() {
 
     if (data == nullptr) {
         latch.MEM_WB.write(nullptr);
-        std::cout << "STALLED" << std::endl;
+        record.is_stall = true;
+        visual.record_memory(record);
         return;
     }
     hu.set_pipe_not_empty();
     hu.set_reg_memory(static_cast<uint32_t>(data->get_rd()));
 
+    record.PC = data->get_PC();
+    record.instr = data->get_disasm();
+
     if (data->is_load() | data->is_store()) {
         if (mmu.is_dcache_busy()) {
-            std::cout << "WAITING FOR DCACHE" << std::endl;
             hu.set_stall_memory();
             latch.MEM_WB.write(nullptr);
+            record.is_dcache = true;
+            visual.record_memory(record);
             return;
         }
 
@@ -201,7 +225,6 @@ void PerfSim::memory_stage() {
             }
 
             awaiting_memory_request = true;
-            std::cout << "\tRequest to DCACHE sent" << std::endl;
         }
 
         auto request = mmu.memory_request_status();
@@ -216,7 +239,6 @@ void PerfSim::memory_stage() {
 
             awaiting_memory_request = false;
             memory_stage_iterations_complete++;
-            std::cout << "Feedback from DCACHE recieved" << std::endl;
         }
 
         bool memory_operation_complete = \
@@ -225,14 +247,14 @@ void PerfSim::memory_stage() {
         if (memory_operation_complete) {
             memory_stage_iterations_complete = 0;
             data->set_rd_v(memory_data);
+            record.is_memop = true;
         } else {
-            std::cout << "\tMemory stage iterations complete: " << memory_stage_iterations_complete << std::endl;
             hu.set_stall_memory();
             latch.MEM_WB.write(nullptr);
+            record.is_dcache = true;
+            visual.record_memory(record);
             return;
         }
-    } else {
-        std::cout << "NOT a memory operation" << std::endl;
     }
 
     if (data->is_jump() | data->is_branch())
@@ -241,25 +263,30 @@ void PerfSim::memory_stage() {
 
     latch.MEM_WB.write(data);
 
-    std::cout << "\t0x" << std::hex << data->get_PC() << ": " << data->get_disasm() << " " << std::endl;
+    if (hu.is_mispredict()) {
+        record.is_flush = true;
+    }
 
-    if (hu.is_mispredict())
-        std::cout << "\tbranch misprediction, flush" << std::endl;
+    visual.record_memory(record);
 } 
 
 void PerfSim::writeback_stage() {
-    std::cout << "WRITEBACK: ";
+    Visualizer::Record record;
     Instruction* data = nullptr;
     
     data = latch.MEM_WB.read();
 
     if (data == nullptr) {
-        std::cout << "BUBBLE" << std::endl;
+        record.is_stall = true;
+        visual.record_writeback(record);
         return;
     }
+    record.PC = data->get_PC();
+    record.instr = data->get_disasm();
+    visual.record_writeback(record);
     hu.set_pipe_not_empty();
     std::cout << "0x" << std::hex << data->get_PC() << ": " << data->get_disasm() << " " << std::endl;
-    this->rf.writeback(*data);
+    rf.writeback(*data);
     ops++;
     delete data;
 }
