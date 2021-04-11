@@ -11,21 +11,15 @@ FuncSim::FuncSim(std::vector<uint8_t>& data, uint32_t PC):
 }
 
 void FuncSim::step() {
-    // fetch
     uint32_t raw_bytes = memory.read_word(PC);
-    // decode
     Instruction instr(raw_bytes, PC);
     rf.read_sources(instr);
-    // execute
     instr.execute();
-    // memory
     memory.load_store(instr);
-    // writeback
     rf.writeback(instr);
+    //memory.dump();
 
-    std::cout << "0x" << std::hex << PC << ": "
-              << instr.get_disasm() << " "
-              << "(0x" << std::hex << raw_bytes << ")" << std::endl;
+    std::cout << "0x" << std::hex << PC << ": " << instr.get_disasm() << " " << "(0x" << std::hex << raw_bytes << ")" << std::endl;
     rf.dump();
 
     PC = instr.get_new_PC();

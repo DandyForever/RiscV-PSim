@@ -47,7 +47,7 @@ public:
     void bypass_stall_DE(bool is_data);
     void init_memory_stage();
 
-    uint32_t handle_mispredict_fetch(uint32_t PC);
+    uint32_t handle_mispredict_fetch(uint32_t PC, bool& is_request);
     bool is_mispredict() { return memory_to_all_flush; }
     void set_mispredict(uint32_t PC);
 

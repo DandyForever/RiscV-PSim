@@ -22,9 +22,14 @@ public:
     uint32_t read(uint32_t addr, size_t num_bytes) const;
     void write(uint32_t value, uint32_t addr, size_t num_bytes);
 
-public:
     Memory(std::vector<uint8_t> data);
     uint32_t get_stack_pointer() const { return (data.size() - 1) & ~(32 - 1); }
+
+    void dump() {
+        for (size_t i = 0; i < data.size(); i++)
+            std::cout << data[i];
+        std::cout << std::endl;
+    }
 };
 
 
@@ -81,11 +86,10 @@ private:
     void process();
 
 public:
-    PerfMemory(std::vector<uint8_t> data,
-               uint32_t latency_in_cycles)
-    : Memory(data)
-    , latency_in_cycles(latency_in_cycles)
-    { }
+    PerfMemory(std::vector<uint8_t> data, uint32_t latency_in_cycles):
+        Memory(data),
+        latency_in_cycles(latency_in_cycles)
+    {}
 
     void clock();
     bool is_busy() { return !request.complete; }

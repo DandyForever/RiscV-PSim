@@ -26,6 +26,7 @@ void PerfSim::step() {
     fetch_stage();
     
     rf.dump();
+    //mmu.dump();
     clocks++;
 
     hu.update_stats();
@@ -47,7 +48,8 @@ void PerfSim::step() {
 }
 
 void PerfSim::run(uint32_t n) {
-    for (uint32_t i = 0; i < n; ++i)
+//    for (uint32_t i = 0; i < n; ++i)
+    while (ops < n)
         this->step();
 }
 
@@ -62,7 +64,7 @@ void PerfSim::fetch_stage() {
         return;
     }
     
-    PC = hu.handle_mispredict_fetch(PC);
+    PC = hu.handle_mispredict_fetch(PC, awaiting_memory_request);
 
     std::cout << std::hex << "PC: " << PC << std::endl;
 

@@ -50,8 +50,9 @@ void HazardUnit::reset() {
     is_pipe_not_empty = false;
 }
 
-uint32_t HazardUnit::handle_mispredict_fetch(uint32_t PC) {
+uint32_t HazardUnit::handle_mispredict_fetch(uint32_t PC, bool& is_request) {
     if (memory_to_all_flush) {
+        is_request = false;
         std::cout << "FLUSH, ";
         return memory_to_fetch_target;
     } else
