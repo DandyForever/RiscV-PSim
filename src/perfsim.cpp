@@ -204,6 +204,7 @@ void PerfSim::memory_stage() {
     record.instr = data->get_disasm();
 
     if (data->is_load() | data->is_store()) {
+        record.is_memop = true;
         if (mmu.is_dcache_busy()) {
             hu.set_stall_memory();
             latch.MEM_WB.write(nullptr);
@@ -241,8 +242,7 @@ void PerfSim::memory_stage() {
             memory_stage_iterations_complete++;
         }
 
-        bool memory_operation_complete = \
-            (memory_stage_iterations_complete * 2) >= data->get_memory_size();
+        bool memory_operation_complete = (memory_stage_iterations_complete * 2) >= data->get_memory_size();
 
         if (memory_operation_complete) {
             memory_stage_iterations_complete = 0;

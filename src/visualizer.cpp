@@ -2,7 +2,7 @@
 
 void Visualizer::print_file() {
     std::ofstream out_file;
-    out_file.open("pipeline.dot", std::ios::out);
+    out_file.open("../pipeline.dot", std::ios::out);
 
     out_file << "digraph Pipeline\n{\n\trankdir = TB\n\tnode [shape = \"box\", color = \"black\"]\n\tedge [color = \"black\"]\n\tsubgraph cycle {\n\t\trankdir = TB\n\t\tCYCLE";
     for (int i = 1; i <= fetch.size(); i++)
@@ -64,11 +64,11 @@ void Visualizer::print_file() {
         out_file << "memory" << std::dec << i << "[shape = \"record\", label = \"{ ";
        if (memory[i - 1].is_stall)
            out_file << "STALLED }\", color = \"red\"]\n\t\t";
-       else if (fetch[i - 1].is_flush)
+       else if (memory[i - 1].is_flush)
            out_file << " (0x" << std::hex << memory[i - 1].PC << ") " << memory[i - 1].instr << " | CAUSE FLUSH }\", color = \"purple\"]\n\t\t";
-       else if (fetch[i - 1].is_dcache)
+       else if (memory[i - 1].is_dcache)
            out_file << " (0x" << std::hex << memory[i - 1].PC << ") " << memory[i - 1].instr << " | DCACHE WAITING }\", color = \"blue\"]\n\t\t";
-       else if (fetch[i - 1].is_memop)
+       else if (memory[i - 1].is_memop)
            out_file << " (0x" << std::hex << memory[i - 1].PC << ") " << memory[i - 1].instr << " }\", color = \"green\"]\n\t\t";
         else
            out_file << " (0x" << std::hex << memory[i - 1].PC << ") " << memory[i - 1].instr << " | NO MEMORY ACCESS }\", color = \"green\"]\n\t\t";

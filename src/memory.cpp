@@ -1,99 +1,46 @@
 #include "memory.h"
 
-Memory::Memory(std::vector<uint8_t> data) :
-    data(std::move(data))
-{ 
-    this->data.resize(100000, 0);
-}
-
-
-uint32_t Memory::read(uint32_t addr, size_t num_bytes) const {
-    if (addr + num_bytes > this->data.size()){
-        std::cout << "ADDR" << std::dec << addr+num_bytes << " " << std::endl;
-        throw std::invalid_argument("Exceeded memory size");
-    }
-    uint32_t value = 0;
-    for (uint i = 0; i < num_bytes; ++i) {
-        uint8_t byte = this->read_byte(addr + i);
-        value |= static_cast<uint32_t>(byte) << (8*i);
-    }
-
-    return value;
-}
-
-
-void Memory::write(uint32_t value, uint32_t addr, size_t num_bytes) {
-    if (addr + num_bytes > this->data.size())
-        throw std::invalid_argument("Exceeded memory size");
-
-    for (uint i = 0; i < num_bytes; ++i) {
-        uint8_t byte = static_cast<uint8_t>(value >> 8*i); 
-        this->write_byte(byte, addr + i);
-    }
-}
-
-void PerfMemory::process() {
-    auto& r = this->request;  // alias
-
-    assert(!r.complete);
-
-    if (r.cycles_left_to_complete == 0) {
-        if (r.is_read)
-            r.data = this->read(r.addr, r.num_bytes);
+void PerfsimMemory::process() {
+    if (request.cycles_left == 0) {
+        if (request.request_type == request_type::read)
+            request.data = read(request.addr, request.num_bytes);
         else
-            this->write(r.data, r.addr, r.num_bytes);
+            write(request.data, request.addr, request.num_bytes);
 
-        r.complete = true;
-        this->request_result.is_ready = true;
-        this->request_result.data = r.data;
+        request.is_completed = true;
+        request_result.is_ready = true;
+        request_result.data = request.data;
     }
 }
 
-void PerfMemory::send_read_request(uint32_t addr, size_t num_bytes) {
-    auto& r = this->request;  // alias
-
-    if (!r.complete)
-        throw std::invalid_argument("Cannot send second request!");
-    if (num_bytes > 2)
-        throw std::invalid_argument("Memory can't handle > 2 bytes per request");
-
-    r.is_read = true;
-    r.complete = false;
-    r.cycles_left_to_complete = this->latency_in_cycles;
-    r.num_bytes = num_bytes;
-    r.addr = addr;
-    r.data = NO_VAL32;
+void PerfsimMemory::send_read_request(uint32_t addr, size_t num_bytes) {
+    request.request_type = request_type::read;
+    request.is_completed = false;
+    request.cycles_left = latency;
+    request.num_bytes = num_bytes;
+    request.addr = addr;
+    request.data = 0xBAAAAAAD;
 }
 
-void PerfMemory::send_write_request(uint32_t value, uint32_t addr, size_t num_bytes) {
-    auto& r = this->request;  // alias
-
-    if (!r.complete)
-        throw std::invalid_argument("Cannot send second request!");
-    if (num_bytes > 2)
-        throw std::invalid_argument("Memory can't handle > 2 bytes per request");
-
-    r.is_read = false;
-    r.complete = false;
-    r.cycles_left_to_complete = this->latency_in_cycles;
-    r.num_bytes = num_bytes;
-    r.addr = addr;
-    r.data = value;
+void PerfsimMemory::send_write_request(uint32_t value, uint32_t addr, size_t num_bytes) {
+    request.request_type = request_type::write;
+    request.is_completed = false;
+    request.cycles_left = latency;
+    request.num_bytes = num_bytes;
+    request.addr = addr;
+    request.data = value;
 }
 
-void PerfMemory::clock() {
-    this->request_result.is_ready = false;
-    this->request_result.data = NO_VAL32;
-    
-    auto& r = this->request;  // alias
+void PerfsimMemory::clock() {
+    request_result.is_ready = false;
+    request_result.data = 0xBAAAAAAD;
 
-    if (r.complete) {
-        assert (r.cycles_left_to_complete == 0);
+
+    if (request.is_completed) {
         return;
     }
 
-    assert (r.cycles_left_to_complete > 0);
-    r.cycles_left_to_complete -= 1;
+    request.cycles_left -= 1;
     
-    this->process();
+    process();
 }
