@@ -104,7 +104,9 @@ Instruction::Instruction(uint32_t bytes, uint32_t PC) :
     function  = entry.generated_entry.function;
     memory_size = entry.memory_size;
 
-    Decoder decoder(bytes, format);
+    //Decoder decoder(bytes, format);
+    Decoder decoder;
+    decoder.Decode(bytes);
     rs1   = decoder.get_rs1();
     rs2   = decoder.get_rs2();
     rd    = decoder.get_rd();
