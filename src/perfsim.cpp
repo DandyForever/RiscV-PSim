@@ -32,64 +32,64 @@ void PerfSim::step() {
     this->fetch_stage();
 
     std::cout << "STALLS: "
-              << wires.FD_stage_reg_stall
-              << wires.DE_stage_reg_stall
-              << wires.EM_stage_reg_stall
+              << hu.FD_stage_reg_stall
+              << hu.DE_stage_reg_stall
+              << hu.EM_stage_reg_stall
               << std::endl;
 
     rf.dump();
     clocks++;
 
-    multiple_stall = static_cast<int>(branch_mispredict) + \
-                    static_cast<int>(fetch_stall) + \
-                    static_cast<int>(memory_stall) + \
-                    static_cast<int>(data_stall) > 1;
-    if (multiple_stall) {
-        multiple_stalls++;
-        if (branch_mispredict) branch_penalties+=2;
+    hu.is_any_stall = static_cast<int>(hu.is_branch_mispredict) + \
+                    static_cast<int>(hu.is_fetch_stall) + \
+                    static_cast<int>(hu.is_memory_stall) + \
+                    static_cast<int>(hu.is_data_stall) > 1;
+    if (hu.is_any_stall) {
+        hu.latency_total++;
+        if (hu.is_branch_mispredict) hu.mispredict_penalty += 2;
     } else {
-        if (fetch_stall || memory_stall) {
-            memory_stalls++;
+        if (hu.is_fetch_stall || hu.is_memory_stall) {
+            hu.latency_memory++;
         }
-        if (data_stall)
-            data_stalls++;
-        if (branch_mispredict)
-            branch_penalties+=3;
+        if (hu.is_data_stall)
+            hu.latency_data_dependency++;
+        if (hu.is_branch_mispredict)
+            hu.mispredict_penalty+=3;
     }
     if (ops > 0)
         std::cout << "CPI: " << clocks*1.0/ops << std::endl;
     std::cout << std::dec << "Clocks: " << clocks << std::endl;
     std::cout << "Ops: " << ops << std::endl;
-    std::cout << "Data stalls: " << data_stalls << std::endl;
-    std::cout << "Memory_stalls: " << memory_stalls << std::endl;
-    std::cout << "Branch penalties: " << branch_penalties << std::endl;
-    std::cout << "Multiple stalls: " << multiple_stalls << std::endl;
+    std::cout << "Data stalls: " << hu.latency_data_dependency << std::endl;
+    std::cout << "latency_memory: " << hu.latency_memory << std::endl;
+    std::cout << "Branch penalties: " << hu.mispredict_penalty << std::endl;
+    std::cout << "Multiple stalls: " << hu.latency_total << std::endl;
     std::cout << std::string(50, '-') << std::endl << std::endl;
 
-    if (!wires.FD_stage_reg_stall)
+    if (!hu.FD_stage_reg_stall)
         stage_registers.FETCH_DECODE.clock();
 
-    if (!wires.DE_stage_reg_stall)
+    if (!hu.DE_stage_reg_stall)
         stage_registers.DECODE_EXE.clock();
 
-    if (!wires.EM_stage_reg_stall)
+    if (!hu.EM_stage_reg_stall)
         stage_registers.EXE_MEM.clock();
 
     if (!false)
         stage_registers.MEM_WB.clock();
     
-    wires.FD_stage_reg_stall = \
-    wires.DE_stage_reg_stall = \
-    wires.EM_stage_reg_stall = false;
+    hu.FD_stage_reg_stall = \
+    hu.DE_stage_reg_stall = \
+    hu.EM_stage_reg_stall = false;
 
-    branch_mispredict = \
-    data_stall = \
-    fetch_stall = \
-    memory_stall = \
-    multiple_stall = false;
+    hu.is_branch_mispredict = \
+    hu.is_data_stall = \
+    hu.is_fetch_stall = \
+    hu.is_memory_stall = \
+    hu.is_any_stall = false;
 
-    if (!pipeline_not_empty) return;
-    pipeline_not_empty = false;
+    if (!hu.is_pipe_not_empty) return;
+    hu.is_pipe_not_empty = false;
 }
 
 void PerfSim::run(uint32_t n) {
@@ -102,17 +102,17 @@ void PerfSim::fetch_stage() {
     static bool awaiting_memory_request = false;
     static uint32_t fetch_data = NO_VAL32;
 
-    if (wires.FD_stage_reg_stall) {
+    if (hu.FD_stage_reg_stall) {
         std::cout << "BUBBLE" << std::endl;
         stage_registers.FETCH_DECODE.write(nullptr);
         return;
     }
     
     // branch mispredctiion handling
-    if (wires.memory_to_all_flush) {
+    if (hu.memory_to_all_flush) {
         fetch_data = NO_VAL32;
         awaiting_memory_request = false;
-        PC = wires.memory_to_fetch_target;
+        PC = hu.memory_to_fetch_target;
         std::cout << "FLUSH, ";
     }
 
@@ -148,7 +148,7 @@ void PerfSim::fetch_stage() {
             stage_registers.FETCH_DECODE.write(nullptr);
             std::cout << "Empty" << std::endl;
         } else {
-            pipeline_not_empty = true;
+            hu.is_pipe_not_empty = true;
             Instruction* data = new Instruction(fetch_data, PC);
             std::cout << "\t0x" << std::hex << data->get_PC() << ": "
                       << data->get_disasm() << " "
@@ -159,7 +159,7 @@ void PerfSim::fetch_stage() {
         }
     } else {
         stage_registers.FETCH_DECODE.write(nullptr);
-        this->fetch_stall = true;
+        hu.is_fetch_stall = true;
         return;
     }
 }
@@ -172,11 +172,11 @@ void PerfSim::decode_stage() {
     data = stage_registers.FETCH_DECODE.read();
 
 
-    if (wires.DE_stage_reg_stall & (data != nullptr))
-        wires.FD_stage_reg_stall = true;
+    if (hu.DE_stage_reg_stall & (data != nullptr))
+        hu.FD_stage_reg_stall = true;
 
     // branch mispredctiion handling
-    if (wires.memory_to_all_flush) {
+    if (hu.memory_to_all_flush) {
         stage_registers.DECODE_EXE.write(nullptr);
         std::cout << "FLUSH" << std::endl;
         if (data != nullptr) delete data;
@@ -189,7 +189,7 @@ void PerfSim::decode_stage() {
         std::cout << "BUBBLE" << std::endl;
         return;
     }
-    pipeline_not_empty = true;
+    hu.is_pipe_not_empty = true;
     std::cout << "0x" << std::hex << data->get_PC() << ": "
               << data->get_disasm() << " "
               << std::endl;
@@ -200,12 +200,12 @@ void PerfSim::decode_stage() {
       | (1 << static_cast<uint32_t>(data->get_rs2()));
 
     uint32_t hazards = \
-        (decode_stage_regs & wires.execute_stage_regs)
-      | (decode_stage_regs & wires.memory_stage_regs);
+        (decode_stage_regs & hu.execute_stage_regs)
+      | (decode_stage_regs & hu.memory_stage_regs);
 
     if ((hazards >> 1) != 0) {
-        this->data_stall = true;
-        wires.FD_stage_reg_stall = true;
+        hu.is_data_stall = true;
+        hu.FD_stage_reg_stall = true;
         stage_registers.DECODE_EXE.write(nullptr);
     } else {
         this->rf.read_sources(*data);
@@ -223,13 +223,13 @@ void PerfSim::execute_stage() {
     Instruction* data = nullptr;
     data = stage_registers.DECODE_EXE.read();
 
-    wires.execute_stage_regs = 0;
+    hu.execute_stage_regs = 0;
 
-    if (wires.EM_stage_reg_stall & (data != nullptr))
-        wires.DE_stage_reg_stall = true;
+    if (hu.EM_stage_reg_stall & (data != nullptr))
+        hu.DE_stage_reg_stall = true;
 
     // branch mispredctiion handling
-    if (wires.memory_to_all_flush) {
+    if (hu.memory_to_all_flush) {
         stage_registers.EXE_MEM.write(nullptr);
         std::cout << "FLUSH" << std::endl;
         if (data != nullptr) delete data;
@@ -241,10 +241,10 @@ void PerfSim::execute_stage() {
         std::cout << "BUBBLE" << std::endl;
         return;
     }
-    pipeline_not_empty = true;
+    hu.is_pipe_not_empty = true;
     // actual execution takes place here
     data->execute();
-    wires.execute_stage_regs = (1 << static_cast<uint32_t>(data->get_rd())); 
+    hu.execute_stage_regs = (1 << static_cast<uint32_t>(data->get_rd()));
     stage_registers.EXE_MEM.write(data);
 
     std::cout << "0x" << std::hex << data->get_PC() << ": "
@@ -254,32 +254,32 @@ void PerfSim::execute_stage() {
 
 void PerfSim::memory_stage() {
     std::cout << "MEM:    ";
-    static uint memory_stage_iterations_complete = 0;
+    static uint32_t memory_stage_iterations_complete = 0;
     static bool awaiting_memory_request = false;
     static uint32_t memory_data = NO_VAL32;
 
     Instruction* data = nullptr;
     data = stage_registers.EXE_MEM.read();
 
-    wires.memory_to_all_flush = false;
-    wires.memory_to_fetch_target = NO_VAL32;
-    wires.memory_stage_regs = 0;
+    hu.memory_to_all_flush = false;
+    hu.memory_to_fetch_target = NO_VAL32;
+    hu.memory_stage_regs = 0;
 
     if (data == nullptr) {
         stage_registers.MEM_WB.write(nullptr);
         std::cout << "BUBBLE" << std::endl;
         return;
     }
-    pipeline_not_empty = true;
-    wires.memory_stage_regs = (1 << static_cast<uint32_t>(data->get_rd())); 
+    hu.is_pipe_not_empty = true;
+    hu.memory_stage_regs = (1 << static_cast<uint32_t>(data->get_rd()));
 
     // memory operations
     if (data->is_load() | data->is_store()) {
         if (dcache.is_busy()) {
             std::cout << "WAITING DCACHE" << std::endl;
-            wires.EM_stage_reg_stall = true;
+            hu.EM_stage_reg_stall = true;
             stage_registers.MEM_WB.write(nullptr);
-            this->memory_stall = true;
+            hu.is_memory_stall = true;
             return;
         }
 
@@ -330,9 +330,9 @@ void PerfSim::memory_stage() {
         } else {
             std::cout << "\tmemory_stage_iterations_complete: "
                       << memory_stage_iterations_complete << std::endl;
-            wires.EM_stage_reg_stall = true;
+            hu.EM_stage_reg_stall = true;
             stage_registers.MEM_WB.write(nullptr);
-            this->memory_stall = true;
+            hu.is_memory_stall = true;
             return;
         }
     } else {
@@ -343,9 +343,9 @@ void PerfSim::memory_stage() {
     if (data->is_jump() | data->is_branch()) {
         if (data->get_new_PC() != data->get_PC() + 4) {
             // target misprediction handling
-            wires.memory_to_all_flush = true;
-            wires.memory_to_fetch_target = data->get_new_PC();
-            this->branch_mispredict = true;
+            hu.memory_to_all_flush = true;
+            hu.memory_to_fetch_target = data->get_new_PC();
+            hu.is_branch_mispredict = true;
         }
     }
 
@@ -356,7 +356,7 @@ void PerfSim::memory_stage() {
               << data->get_disasm() << " "
               << std::endl;
 
-    if (wires.memory_to_all_flush)
+    if (hu.memory_to_all_flush)
         std::cout << "\tbranch misprediction, flush" << std::endl;
 } 
 
@@ -371,7 +371,7 @@ void PerfSim::writeback_stage() {
         std::cout << "BUBBLE" << std::endl;
         return;
     }
-    pipeline_not_empty = true;
+    hu.is_pipe_not_empty = true;
     std::cout << "0x" << std::hex << data->get_PC() << ": "
           << data->get_disasm() << " "
           << std::endl;

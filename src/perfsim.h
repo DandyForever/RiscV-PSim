@@ -8,6 +8,7 @@
 #include "elf.h"
 #include "elf_manager.h"
 #include "consts.h"
+#include "hazard_unit.h"
 
 class PerfSim {
 private:
@@ -16,20 +17,23 @@ private:
     Cache icache;
     Cache dcache;
     RF rf;
+    HazardUnit hu;
     uint32_t PC;
     uint32_t clocks;
     uint32_t ops;
-    uint32_t branch_penalties = 0;
-    uint32_t data_stalls = 0;
-    uint32_t memory_stalls = 0;
-    uint32_t multiple_stalls = 0;
-    bool pipeline_not_empty = true;
 
-    bool branch_mispredict = false;
-    bool fetch_stall = false;
-    bool memory_stall = false;
-    bool data_stall = false;
-    bool multiple_stall = false;
+//    uint32_t mispredict_penalty = 0;
+//    uint32_t latency_data_dependency = 0;
+//    uint32_t latency_memory = 0;
+//    uint32_t latency_total = 0;
+//
+//    bool is_pipe_not_empty = true;
+//
+//    bool is_branch_mispredict = false;
+//    bool is_fetch_stall = false;
+//    bool is_data_stall = false;
+//    bool is_memory_stall = false;
+//    bool is_any_stall = false;
 
     struct StageRegisterStore {
         StageRegister FETCH_DECODE;
@@ -39,20 +43,20 @@ private:
     } stage_registers;
 
     // used for feedback from later stages to earlier stages 
-    struct WireStore {
-        // branch misprediction flush
-        uint32_t memory_to_fetch_target = NO_VAL32;
-        bool memory_to_all_flush = false;
-
-        bool PC_stage_reg_stall = false;
-        bool FD_stage_reg_stall = false;
-        bool DE_stage_reg_stall = false;
-        bool EM_stage_reg_stall = false;
-
-        // masks of RF registers used at EXE/MEM stages
-        uint32_t execute_stage_regs = 0;
-        uint32_t memory_stage_regs = 0;
-    } wires;
+//    struct WireStore {
+//        // branch misprediction flush
+//        uint32_t memory_to_fetch_target = NO_VAL32;
+//        bool memory_to_all_flush = false;
+//
+//        bool PC_stage_reg_stall = false;
+//        bool FD_stage_reg_stall = false;
+//        bool DE_stage_reg_stall = false;
+//        bool EM_stage_reg_stall = false;
+//
+//        // masks of RF registers used at EXE/MEM stages
+//        uint32_t execute_stage_regs = 0;
+//        uint32_t memory_stage_regs = 0;
+//    } wires;
 
 public:
     PerfSim(char* executable_filename);
