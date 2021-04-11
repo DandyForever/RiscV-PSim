@@ -123,8 +123,8 @@ const std::string Instruction::get_disasm() const {
             break;
         case Format::I:
             oss << rs1 << ", ";
-            oss << rd << ", ";
-            oss << std::hex << imm_v;
+            oss << std::hex << imm_v << std::dec << ", ";
+            oss << rd;
             break;
         case Format::S:
         case Format::B:
@@ -134,8 +134,8 @@ const std::string Instruction::get_disasm() const {
             break;
         case Format::U:
         case Format::J:
-            oss << rd << ", ";
-            oss << std::hex << imm_v;
+            oss << std::hex << imm_v << std::dec << ", ";
+            oss << rd;
             break;
         default:
             assert(0);
