@@ -65,7 +65,7 @@ void HazardUnit::bypass_stall_DE(bool is_data) {
 
 bool HazardUnit::is_data_hazard_decode(uint32_t rs1, uint32_t rs2) {
     uint32_t decode_regs = (1 << rs1) | (1 << rs2);
-    uint32_t hazard = (decode_regs & execute_stage_regs) | (decode_regs & memory_stage_regs);
+    uint32_t hazard = decode_regs & memory_stage_regs;
     hazard = hazard >> 1;
     if (hazard) {
         is_data_stall = true;
