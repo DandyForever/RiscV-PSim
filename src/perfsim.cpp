@@ -139,7 +139,10 @@ void PerfSim::decode_stage() {
     else {
         rf.read_sources(*data);
         auto bypass_info = fu.read_sources(*data);
-        if (bypass_info == 2)
+        if (bypass_info == 3) {
+            record.is_bypass_exe = true;
+            record.is_bypass_mem = true;
+        } else if (bypass_info == 2)
             record.is_bypass_exe = true;
         else if (bypass_info == 1)
             record.is_bypass_mem = true;
