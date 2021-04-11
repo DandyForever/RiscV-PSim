@@ -27,8 +27,8 @@ private:
     bool DE_stage_reg_stall = false;
     bool EM_stage_reg_stall = false;
 
-    uint32_t execute_stage_regs = 0;
-    uint32_t memory_stage_regs = 0;
+    uint32_t execute_stage_regs = 32;
+    uint32_t memory_stage_regs = 32;
 
 public:
     void update_stats();

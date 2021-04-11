@@ -8,12 +8,14 @@
 #include "consts.h"
 #include "hazard_unit.h"
 #include "visualizer.h"
+#include "forwarding_unit.h"
 
 class PerfSim {
 private:
     MMU mmu;
     RF rf;
     HazardUnit hu;
+    ForwardingUnit fu;
     uint32_t PC;
 
     Visualizer visual;
