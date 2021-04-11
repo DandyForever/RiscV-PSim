@@ -8,7 +8,7 @@
 #include "consts.h"
 
 class MMU {
-public:
+private:
     PerfMemory memory;
     Cache icache;
     Cache dcache;
@@ -17,6 +17,8 @@ public:
     MMU(const std::vector<uint8_t>& data);
 
     void clock();
+    uint32_t getSP() { return memory.get_stack_pointer(); }
+
     bool is_icache_busy() { return icache.is_busy(); }
     bool is_dcache_busy() { return dcache.is_busy(); }
     bool fetch(bool& is_request, uint32_t PC, uint32_t& data);

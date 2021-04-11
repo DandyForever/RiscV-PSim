@@ -8,7 +8,7 @@ PerfSim::PerfSim(std::vector<uint8_t>& data, uint32_t PC):
     clocks(0),
     ops(0)
 {
-    rf.set_stack_pointer(mmu.memory.get_stack_pointer());
+    rf.set_stack_pointer(mmu.getSP());
     rf.validate(Register::Number::s0);
     rf.validate(Register::Number::ra);
     rf.validate(Register::Number::s1);
@@ -180,7 +180,7 @@ void PerfSim::memory_stage() {
     hu.set_reg_memory(static_cast<uint32_t>(data->get_rd()));
 
     if (data->is_load() | data->is_store()) {
-        if (mmu.dcache.is_busy()) {
+        if (mmu.is_dcache_busy()) {
             std::cout << "WAITING FOR DCACHE" << std::endl;
             hu.set_stall_memory();
             stage_registers.MEM_WB.write(nullptr);

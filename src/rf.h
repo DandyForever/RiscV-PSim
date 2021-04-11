@@ -26,9 +26,7 @@ private:
         return static_cast<int32_t>((x ^ m) - m);
     }
 public:
-    RF() {
-        register_table[Register::zero()].is_valid = true;
-    };
+    RF() { register_table[Register::zero()].is_valid = true; };
     
     void read_sources(Instruction &instr) const;
     void writeback(const Instruction &instr);

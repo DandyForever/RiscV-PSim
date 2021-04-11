@@ -36,7 +36,7 @@ void RF::writeback(const Instruction &instr) {
     uint32_t value = instr.get_rd_v();
 
     if (instr.is_sign_extended_load()) {
-        auto bits = 8*instr.get_memory_size();
+        auto bits = 8 * instr.get_memory_size();
         int32_t sign_extended_value = sign_extend(bits, value);
         value = static_cast<uint32_t>(sign_extended_value);
     }
