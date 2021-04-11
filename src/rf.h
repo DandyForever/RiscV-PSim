@@ -20,11 +20,8 @@ private:
     bool is_valid(Register num) const;
 
 
-    int32_t sign_extend(const int bits, uint32_t x) {
-        uint32_t m = 1;
-        m <<= bits - 1;
-        return static_cast<int32_t>((x ^ m) - m);
-    }
+    int32_t sign_extend(const int bits, uint32_t x);
+
 public:
     RF() { register_table[Register::zero()].is_valid = true; };
     

@@ -11,6 +11,12 @@ void MMU::clock() {
    dcache.clock();
 }
 
+void MMU::dump() { 
+    if (!IS_DUMP_MEM)
+        return;
+
+    memory.dump(); 
+}
 
 bool MMU::fetch(bool& is_request, uint32_t PC, uint32_t& data) {
    if (!is_request) {

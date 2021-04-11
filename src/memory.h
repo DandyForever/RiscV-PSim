@@ -11,11 +11,11 @@ private:
     std::vector<uint8_t> data;
 
     uint8_t read_byte(uint32_t addr) const {
-        return this->data[addr];
+        return data[addr];
     }
 
     void write_byte(uint8_t value, uint32_t addr) {
-        this->data[addr] = value;
+        data[addr] = value;
     }
     
 public:
@@ -36,23 +36,23 @@ public:
 class FuncMemory : public Memory {
 private:
     void load(Instruction& instr) const {
-        uint32_t value = this->read(instr.get_memory_addr(), instr.get_memory_size());
+        uint32_t value = read(instr.get_memory_addr(), instr.get_memory_size());
         instr.set_rd_v(value);
     }
 
     void store(const Instruction& instr) {
-        this->write(instr.get_rs2_v(), instr.get_memory_addr(), instr.get_memory_size());
+        write(instr.get_rs2_v(), instr.get_memory_addr(), instr.get_memory_size());
     }     
 
 public:
     FuncMemory(std::vector<uint8_t> data) : Memory(data) { }
 
-    uint32_t read_word(uint32_t addr) { return this->read(addr, 4); }
+    uint32_t read_word(uint32_t addr) { return read(addr, 4); }
     void load_store(Instruction& instr) {
         if (instr.is_load())
-            this->load(instr);
+            load(instr);
         else if (instr.is_store())
-            this->store(instr);
+            store(instr);
     }
 };
 
@@ -65,7 +65,6 @@ public:
     };
 
 private:
-    // read/write request to memory
     struct Request {
         bool complete = true;
         bool is_read = false;
@@ -75,14 +74,11 @@ private:
         uint32_t cycles_left_to_complete = 0;
     };
 
-    // active request to memory (single-port memory)
     Request request;
     RequestResult request_result;
 
-    // fixed memory latency
     uint32_t latency_in_cycles = 0;
 
-    // process active request to memory
     void process();
 
 public:

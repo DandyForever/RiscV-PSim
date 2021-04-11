@@ -1,9 +1,9 @@
-#ifndef _PORT_H_
-#define _PORT_H_
+#ifndef _LATCH_H_
+#define _LATCH_H_
 
 #include "instruction.h"
 
-class StageRegister {
+class Latch {
 private:
     Instruction* data_in = nullptr;
     Instruction* data_out = nullptr;

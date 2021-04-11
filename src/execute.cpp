@@ -1,7 +1,7 @@
 #include "instruction.h"
 
 void Instruction::execute_unknown() {
-    std::cerr << "Incorrect instruction: " << this->get_disasm() << std::endl;
+    std::cerr << "Incorrect instruction: " << get_disasm() << std::endl;
     exit(EXIT_FAILURE);
 }
 
@@ -154,8 +154,7 @@ void Instruction::execute_sll() {
 }
 
 void Instruction::execute_slt() {
-    rd_v =  static_cast<uint32_t>(static_cast<int32_t>(rs1_v) < \
-                            static_cast<int32_t>(rs2_v));
+    rd_v =  static_cast<uint32_t>(static_cast<int32_t>(rs1_v) < static_cast<int32_t>(rs2_v));
 }
 
 void Instruction::execute_sltu() {
@@ -175,8 +174,7 @@ void Instruction::execute_and() {
 }
 
 void Instruction::execute_sra() {
-    rd_v = static_cast<uint32_t>(static_cast<int32_t>(rs1_v) >> \
-        (rs2_v & 0b00000000'00000000'00000000'00011111));
+    rd_v = static_cast<uint32_t>(static_cast<int32_t>(rs1_v) >> (rs2_v & 0b00000000'00000000'00000000'00011111));
 }
 
 void Instruction::execute_srl() {
@@ -344,4 +342,3 @@ void Instruction::execute_fcvt_wu_s() { assert(0); }
 void Instruction::execute_sfence_vma() { assert(0); }
 void Instruction::execute_hfence_bvma() { assert(0); }
 void Instruction::execute_hfence_gvma() { assert(0); }
-

@@ -10,13 +10,11 @@
 
 class Instruction {
 public:
-    // RISCV encoding format
     enum class Format {
         R, I, S, B, U, J,
         UNKNOWN
     };
 
-    // internal types
     enum class Type {
         LOADU, LOAD, STORE,
         ARITHM,
@@ -24,44 +22,35 @@ public:
         UNKNOWN
     };
 
-    // executor function type
     using Executor = void (Instruction::*)(void);
 
 private:
-    // PC
     const uint32_t PC = NO_VAL32;
     uint32_t new_PC = NO_VAL32;
 
-    // main info
     bool complete = false;
     std::string name = "unknown";
     Format format = Format::UNKNOWN;
     Type type = Type::UNKNOWN;
 
-    // registers
     Register rs1 = Register::zero();
     Register rs2 = Register::zero();
     Register rd  = Register::zero();
 
-    // registers values
     uint32_t rs1_v = NO_VAL32;
     uint32_t rs2_v = NO_VAL32;
     uint32_t rd_v  = NO_VAL32;
     
-    // immediate
     int32_t imm_v = NO_VAL32;
 
-    // for loads/stores
     uint32_t memory_addr = NO_VAL32;
     uint32_t memory_size = NO_VAL32;
 
 public:
-    // constructors
     explicit Instruction(uint32_t bytes, uint32_t PC);
     Instruction(const Instruction& other);
     Instruction() = delete;
 
-    // dummy getters
     const Register get_rs1 () const { return rs1; }
     const Register get_rs2 () const { return rs2; }
     const Register get_rd  () const { return rd; }
@@ -88,11 +77,9 @@ public:
     uint32_t get_memory_addr() const { return memory_addr; }
     uint32_t get_memory_size() const { return memory_size; }
 
-    // representation
     const std::string get_name() const { return name; }
     const std::string get_disasm() const;
 
-    // executors
     void execute();
     void execute_unknown();
 

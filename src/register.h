@@ -5,7 +5,7 @@
 
 class Register {
 public:
-    enum class Number {
+    enum class Names {
         zero,
         ra,
         sp,
@@ -26,20 +26,20 @@ public:
         return out << reg.get_name();
     }
 
-    const std::string get_name() const { return "$" + this->names_table[this->id()]; }
+    const std::string get_name() const { return "$" + names_table[id()]; }
 
-    Register(Number number) : number(number) { };
-    Register(uint8_t number) : number(static_cast<Number>(number)) { };
+    Register(Names name) : name(name) { };
+    Register(uint8_t number) : name(static_cast<Names>(number)) { };
 
-    size_t id() const { return static_cast<size_t>(this->number); }
-    static Register zero() { return Register(Number::zero); }
-    operator size_t() const { return static_cast<size_t>(this->number); }
+    size_t id() const { return static_cast<size_t>(name); }
+    static Register zero() { return Register(Names::zero); }
+    operator size_t() const { return static_cast<size_t>(name); }
 
-    static constexpr const size_t MAX_NUMBER = static_cast<size_t>(Number::MAX);
-    static_assert(MAX_NUMBER == 32u, "Wrong amount of registers");
+    static constexpr const size_t MAX_NUMBER = static_cast<size_t>(Names::MAX);
+    static_assert(MAX_NUMBER == 32u, "Wrong number of registers");
 
 private:
-    Number number = Number::zero;
+    Names name = Names::zero;
     static const std::array<std::string, MAX_NUMBER> names_table;
 };
 

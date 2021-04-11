@@ -6,8 +6,8 @@ FuncSim::FuncSim(std::vector<uint8_t>& data, uint32_t PC):
     PC(PC)
 {
     rf.set_stack_pointer(memory.get_stack_pointer());
-    rf.validate(Register::Number::s0);
-    rf.validate(Register::Number::ra);
+    rf.validate(Register::Names::s0);
+    rf.validate(Register::Names::ra);
 }
 
 void FuncSim::step() {

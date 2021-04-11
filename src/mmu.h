@@ -16,7 +16,7 @@ private:
 public:
     MMU(const std::vector<uint8_t>& data);
 
-    void dump() { memory.dump(); }
+    void dump();
 
     void clock();
     uint32_t getSP() { return memory.get_stack_pointer(); }

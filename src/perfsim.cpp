@@ -9,11 +9,11 @@ PerfSim::PerfSim(std::vector<uint8_t>& data, uint32_t PC):
     ops(0)
 {
     rf.set_stack_pointer(mmu.getSP());
-    rf.validate(Register::Number::s0);
-    rf.validate(Register::Number::ra);
-    rf.validate(Register::Number::s1);
-    rf.validate(Register::Number::s2);
-    rf.validate(Register::Number::s3);
+    rf.validate(Register::Names::s0);
+    rf.validate(Register::Names::ra);
+    rf.validate(Register::Names::s1);
+    rf.validate(Register::Names::s2);
+    rf.validate(Register::Names::s3);
 }
 
 void PerfSim::step() {
@@ -34,21 +34,20 @@ void PerfSim::step() {
     hu.print_stats(clocks, ops);
     
     if (!hu.is_stall_FD())
-        stage_registers.FETCH_DECODE.clock();
+        latch.FETCH_DECODE.clock();
 
     if (!hu.is_stall_DE())
-        stage_registers.DECODE_EXE.clock();
+        latch.DECODE_EXE.clock();
 
     if (!hu.is_stall_EM())
-        stage_registers.EXE_MEM.clock();
+        latch.EXE_MEM.clock();
 
-        stage_registers.MEM_WB.clock();
+        latch.MEM_WB.clock();
     
     hu.reset();
 }
 
 void PerfSim::run(uint32_t n) {
-//    for (uint32_t i = 0; i < n; ++i)
     while (ops < n)
         this->step();
 }
@@ -60,7 +59,7 @@ void PerfSim::fetch_stage() {
 
     if (hu.check_stall_FD()) {
         std::cout << "STALLED" << std::endl;
-        stage_registers.FETCH_DECODE.write(nullptr);
+        latch.FETCH_DECODE.write(nullptr);
         return;
     }
     
@@ -70,7 +69,7 @@ void PerfSim::fetch_stage() {
 
     if (mmu.is_icache_busy()) {
         std::cout << "\tWAITING FOR ICACHE" << std::endl;
-        stage_registers.FETCH_DECODE.write(nullptr);
+        latch.FETCH_DECODE.write(nullptr);
         return;
     }
 
@@ -78,7 +77,7 @@ void PerfSim::fetch_stage() {
 
     if (fetch_complete) {
         if ((fetch_data == 0 ) | (fetch_data == NO_VAL32)) {
-            stage_registers.FETCH_DECODE.write(nullptr);
+            latch.FETCH_DECODE.write(nullptr);
             std::cout << "Empty" << std::endl;
         } else {
             hu.set_pipe_not_empty();
@@ -87,11 +86,11 @@ void PerfSim::fetch_stage() {
                       << data->get_disasm() << " "
                       << std::endl;
 
-            stage_registers.FETCH_DECODE.write(data);
+            latch.FETCH_DECODE.write(data);
             PC = PC + 4;
         }
     } else {
-        stage_registers.FETCH_DECODE.write(nullptr);
+        latch.FETCH_DECODE.write(nullptr);
         hu.set_stall_fetch();
     }
 }
@@ -101,19 +100,19 @@ void PerfSim::decode_stage() {
     std::cout << "DECODE:    ";
 
     Instruction* data = nullptr;
-    data = stage_registers.FETCH_DECODE.read();
+    data = latch.FETCH_DECODE.read();
 
     hu.bypass_stall_FD(data != nullptr);
 
     if (hu.is_mispredict()) {
-        stage_registers.DECODE_EXE.write(nullptr);
+        latch.DECODE_EXE.write(nullptr);
         std::cout << "FLUSH" << std::endl;
         if (data != nullptr) delete data;
         return;
     }
 
     if (data == nullptr) {
-        stage_registers.DECODE_EXE.write(nullptr);
+        latch.DECODE_EXE.write(nullptr);
         std::cout << "STALLED" << std::endl;
         return;
     }
@@ -121,10 +120,10 @@ void PerfSim::decode_stage() {
     std::cout << "0x" << std::hex << data->get_PC() << ": " << data->get_disasm() << " " << std::endl;
 
     if (hu.is_data_hazard_decode(static_cast<uint32_t>(data->get_rs1()), static_cast<uint32_t>(data->get_rs2())))
-        stage_registers.DECODE_EXE.write(nullptr);
+        latch.DECODE_EXE.write(nullptr);
     else {
         this->rf.read_sources(*data);
-        stage_registers.DECODE_EXE.write(data);
+        latch.DECODE_EXE.write(data);
     }
 
     std::cout << "\tRead from RF: " << data->get_rs1() << " " \
@@ -136,19 +135,19 @@ void PerfSim::execute_stage() {
     std::cout << "EXECUTE:   ";
 
     Instruction* data = nullptr;
-    data = stage_registers.DECODE_EXE.read();
+    data = latch.DECODE_EXE.read();
 
     hu.bypass_stall_DE(data != nullptr);
 
     if (hu.is_mispredict()) {
-        stage_registers.EXE_MEM.write(nullptr);
+        latch.EXE_MEM.write(nullptr);
         std::cout << "FLUSH" << std::endl;
         if (data != nullptr) delete data;
         return;
     }
 
     if (data == nullptr) {
-        stage_registers.EXE_MEM.write(nullptr);
+        latch.EXE_MEM.write(nullptr);
         std::cout << "STALLED" << std::endl;
         return;
     }
@@ -157,7 +156,7 @@ void PerfSim::execute_stage() {
     data->execute();
 
     hu.set_reg_execute(static_cast<uint32_t>(data->get_rd()));
-    stage_registers.EXE_MEM.write(data);
+    latch.EXE_MEM.write(data);
 
     std::cout << "0x" << std::hex << data->get_PC() << ": " << data->get_disasm() << " "<< std::endl;
 }
@@ -169,12 +168,12 @@ void PerfSim::memory_stage() {
     static uint32_t memory_data = NO_VAL32;
 
     Instruction* data = nullptr;
-    data = stage_registers.EXE_MEM.read();
+    data = latch.EXE_MEM.read();
 
     hu.init_memory_stage();
 
     if (data == nullptr) {
-        stage_registers.MEM_WB.write(nullptr);
+        latch.MEM_WB.write(nullptr);
         std::cout << "STALLED" << std::endl;
         return;
     }
@@ -185,7 +184,7 @@ void PerfSim::memory_stage() {
         if (mmu.is_dcache_busy()) {
             std::cout << "WAITING FOR DCACHE" << std::endl;
             hu.set_stall_memory();
-            stage_registers.MEM_WB.write(nullptr);
+            latch.MEM_WB.write(nullptr);
             return;
         }
 
@@ -229,7 +228,7 @@ void PerfSim::memory_stage() {
         } else {
             std::cout << "\tMemory stage iterations complete: " << memory_stage_iterations_complete << std::endl;
             hu.set_stall_memory();
-            stage_registers.MEM_WB.write(nullptr);
+            latch.MEM_WB.write(nullptr);
             return;
         }
     } else {
@@ -240,7 +239,7 @@ void PerfSim::memory_stage() {
         if (data->get_new_PC() != data->get_PC() + 4)
             hu.set_mispredict(data->get_new_PC());
 
-    stage_registers.MEM_WB.write(data);
+    latch.MEM_WB.write(data);
 
     std::cout << "\t0x" << std::hex << data->get_PC() << ": " << data->get_disasm() << " " << std::endl;
 
@@ -252,7 +251,7 @@ void PerfSim::writeback_stage() {
     std::cout << "WRITEBACK: ";
     Instruction* data = nullptr;
     
-    data = stage_registers.MEM_WB.read();
+    data = latch.MEM_WB.read();
 
     if (data == nullptr) {
         std::cout << "BUBBLE" << std::endl;
