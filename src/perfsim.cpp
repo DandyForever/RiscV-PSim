@@ -139,7 +139,10 @@ void PerfSim::decode_stage() {
     else {
         rf.read_sources(*data);
         auto bypass_info = fu.read_sources(*data);
-        if (bypass_info == 2)
+        if (bypass_info == 3) {
+            record.is_bypass_exe = true;
+            record.is_bypass_mem = true;
+        } else if (bypass_info == 2)
             record.is_bypass_exe = true;
         else if (bypass_info == 1)
             record.is_bypass_mem = true;
@@ -176,8 +179,8 @@ void PerfSim::execute_stage() {
     
     data->execute();
 
-    //hu.set_reg_execute(static_cast<uint32_t>(data->get_rd())); //Not necessary
     fu.set_bypass_exe({static_cast<uint32_t>(data->get_rd()), data->get_rd_v()});
+
     latch.EXE_MEM.write(data);
 
     record.PC = data->get_PC();
