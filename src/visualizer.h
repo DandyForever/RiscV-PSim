@@ -14,6 +14,8 @@ public:
         bool is_memop = false;
         bool is_flush = false;
         bool is_empty = false;
+        bool is_bypass_exe = false;
+        bool is_bypass_mem = false;
         std::string instr = "";
         uint32_t raw_bytes = 0;
         uint32_t PC = 0;

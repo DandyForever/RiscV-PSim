@@ -36,6 +36,10 @@ void Visualizer::print_file() {
             out_file << "STALLED }\", color = \"red\"]\n\t\t";
         else if (decode[i - 1].is_flush)
             out_file << "FLUSHED }\", color = \"purple\"]\n\t\t";
+        else if (decode[i - 1].is_bypass_exe)
+            out_file << " (0x" << std::hex << decode[i - 1].PC << ") " << decode[i - 1].instr << "| BYPASS FROM EXE }\", color = \"green\"]\n\t\t";
+        else if (decode[i - 1].is_bypass_mem)
+            out_file << " (0x" << std::hex << decode[i - 1].PC << ") " << decode[i - 1].instr << "| BYPASS FROM MEM }\", color = \"green\"]\n\t\t";
         else
             out_file << " (0x" << std::hex << decode[i - 1].PC << ") " << decode[i - 1].instr << " }\", color = \"green\"]\n\t\t";
     }

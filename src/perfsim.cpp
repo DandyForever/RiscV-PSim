@@ -30,7 +30,7 @@ void PerfSim::step() {
     clocks++;
 
     hu.update_stats();
-
+    fu.flush();
     
     if (!hu.is_stall_FD())
         latch.FETCH_DECODE.clock();
@@ -137,7 +137,12 @@ void PerfSim::decode_stage() {
     if (hu.is_data_hazard_decode(static_cast<uint32_t>(data->get_rs1()), static_cast<uint32_t>(data->get_rs2())))
         latch.DECODE_EXE.write(nullptr);
     else {
-        this->rf.read_sources(*data);
+        rf.read_sources(*data);
+        auto bypass_info = fu.read_sources(*data);
+        if (bypass_info == 2)
+            record.is_bypass_exe = true;
+        else if (bypass_info == 1)
+            record.is_bypass_mem = true;
         latch.DECODE_EXE.write(data);
     }
 
@@ -171,7 +176,8 @@ void PerfSim::execute_stage() {
     
     data->execute();
 
-    hu.set_reg_execute(static_cast<uint32_t>(data->get_rd()));
+    //hu.set_reg_execute(static_cast<uint32_t>(data->get_rd())); //Not necessary
+    fu.set_bypass_exe({static_cast<uint32_t>(data->get_rd()), data->get_rd_v()});
     latch.EXE_MEM.write(data);
 
     record.PC = data->get_PC();
@@ -198,7 +204,10 @@ void PerfSim::memory_stage() {
         return;
     }
     hu.set_pipe_not_empty();
-    hu.set_reg_memory(static_cast<uint32_t>(data->get_rd()));
+    if (data->is_load())
+        hu.set_reg_memory(static_cast<uint32_t>(data->get_rd()));
+    else
+        hu.set_reg_memory(Register::MAX_NUMBER);
 
     record.PC = data->get_PC();
     record.instr = data->get_disasm();
@@ -247,6 +256,8 @@ void PerfSim::memory_stage() {
         if (memory_operation_complete) {
             memory_stage_iterations_complete = 0;
             data->set_rd_v(memory_data);
+            fu.set_bypass_mem({static_cast<uint32_t>(data->get_rd()), memory_data});
+            hu.set_reg_memory(static_cast<uint32_t>(Register::MAX_NUMBER));
             record.is_memop = true;
         } else {
             hu.set_stall_memory();
@@ -255,6 +266,8 @@ void PerfSim::memory_stage() {
             visual.record_memory(record);
             return;
         }
+    } else {//Not a memory operation
+        fu.set_bypass_mem({static_cast<uint32_t>(data->get_rd()), data->get_rd_v()});
     }
 
     if (data->is_jump() | data->is_branch())
