@@ -63,16 +63,6 @@ struct InstSet {
     }
 };
 
-
-#define I(name) \
-inst_ ## name
-
-#define F(format) \
-Instruction::Format::format
-
-#define T(type) \
-Instruction::Type::type
-
 static const std::vector<InstSet> instSet = {
    { inst_lui,     Format::U,     0,    Type::ARITHM },
    { inst_auipc,   Format::U,     0,    Type::ARITHM },
