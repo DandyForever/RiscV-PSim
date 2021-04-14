@@ -9,7 +9,7 @@
 
 class MMU {
 private:
-    PerfMemory memory;
+    PerfsimMemory memory;
     Cache icache;
     Cache dcache;
 

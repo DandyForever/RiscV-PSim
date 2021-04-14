@@ -10,7 +10,7 @@
 
 class FuncSim {
     private:
-        FuncMemory memory;
+        FuncsimMemory memory;
         RF rf;
         uint32_t PC = NO_VAL32;
     public:

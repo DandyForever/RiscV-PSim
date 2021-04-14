@@ -1,261 +1,172 @@
 #include "cache.h"
 #include <sstream>
 
-LRUInfo::LRUInfo(uint32_t num_ways, uint32_t num_sets) :
-    lru(num_sets)
-{
-    std::list<Way> l(num_ways);
-    std::iota(l.begin(), l.end(), 0);
-    std::fill(lru.begin(), lru.end(), l);
-}
-
-void LRUInfo::touch(Set set, Way way) {
-    auto& list = this->lru[set];
-
-    for (auto it = list.begin(); it != list.end(); ++it) {
-        if (*it == way) {
-            list.splice(list.begin(), list, it);
-            return;
-        }
-    }
-}
-
-Way LRUInfo::get_LRU_way(Set set) {
-    auto& list = lru[set];
-    return list.back();
-}
-
 uint32_t Cache::Line::read_bytes(uint32_t offset, uint32_t num_bytes) {
-    assert(offset + num_bytes <= this->data.size());
-
     uint32_t value = 0;
     for (uint i = 0; i < num_bytes; ++i) {
-        uint8_t byte = this->data[offset + i];
+        uint8_t byte = data[offset + i];
         value |= static_cast<uint32_t>(byte) << (8*i);
     }
     return value;
 }
 
 void Cache::Line::write_bytes(uint32_t value, uint32_t offset, uint32_t num_bytes) {
-    assert(offset + num_bytes <= this->data.size());
-
     for (uint i = 0; i < num_bytes; ++i) {
         uint8_t byte = static_cast<uint8_t>(value >> 8*i); 
-        this->data[offset + i] = byte;
+        data[offset + i] = byte;
     }
 }
 
-Cache::Cache(PerfMemory& memory,
-             uint32_t num_ways,
-             uint32_t num_sets,
-             uint32_t line_size_in_bytes)
+Cache::Cache(PerfsimMemory& memory, uint32_t num_ways, uint32_t num_sets, uint32_t line_size_in_bytes)
     : memory(memory)
     , num_sets(num_sets)
     , line_size_in_bytes(line_size_in_bytes)
-    , array(num_ways, std::vector<Line>(num_sets, Line(line_size_in_bytes)))
-    , lru_info(num_ways, num_sets)
-    { }
-
-void Cache::process_hit(Way way) {
-    std::cout << "\thit" << std::endl;
-    auto& r = this->request;  // alias
-
-    Set set = this->get_set(r.addr);
-    Line& line = this->array[way][set];
-    assert(line.is_valid);
-
-    uint32_t offset = this->get_line_offset(r.addr);
-    if (r.is_read) {
-        r.data = line.read_bytes(offset, r.num_bytes);
-    }
-    else {
-        line.write_bytes(r.data, offset, r.num_bytes);
-        line.is_dirty = true;
-    }
-    r.complete = true;
-    this->lru_info.touch(set, way);
-}
-
-void Cache::process_miss() {
-    std::cout << "\tmiss" << std::endl;
-    auto& r = this->request;  // alias
-
-    Set set = this->get_set(r.addr);
-    Way way = this->lru_info.get_LRU_way(set);
-    Line& line = this->array[way][set];
-
-    if (line.is_valid && line.is_dirty) {
-        this->line_requests.push(
-            LineRequest(this->get_line_addr(line.addr), set, way, false)
-        );
-        std::cout << "\tcreated write line request" << std::endl;
+    , cache_mem(num_ways, std::vector<Line>(num_sets, Line(line_size_in_bytes)))
+    , fifo_queues(num_sets, std::queue<uint32_t>())
+    {
+        for (auto i = 0; i < num_sets; i++) 
+            for (auto j = 0; j < num_ways; j++) 
+                fifo_queues[i].push(j);
     }
 
-    this->line_requests.push(
-        LineRequest(this->get_line_addr(r.addr), set, way, true)
-    );
-    std::cout << "\tcreated read line request" << std::endl;
-}
 
 void Cache::process_line_requests() {
-    if (this->line_requests.empty())
+    if (line_requests.empty())
         return;
 
-    std::cout << "\tprocessing requests" << std::endl;
-    if (this->memory.is_busy())
+    if (memory.is_busy())
         return;
 
-    auto& lr = this->line_requests.front();
-    Line& line = this->array[lr.way][lr.set];
+    auto& line_request = line_requests.front();
+    Line& line = cache_mem[line_request.way][line_request.set];
 
-
-    if (lr.is_read) {
-        // read request is used to bring new line to cache from memory
-        assert(!(line.is_valid && line.is_dirty));
-        //assert(!(line.is_valid && line.addr != lr.addr));
-    }
-    else {
-        // write request is used to store line in memory
-        assert(line.is_valid);
-        assert(line.is_dirty);
-        assert(line.addr == lr.addr);
-    }
-
-    if (lr.awaiting_memory_request) {
-        auto mr = this->memory.get_request_status();
-        assert (mr.is_ready);
+    if (line_request.awaiting_memory_request) {
+        auto mr = memory.get_request_status();
         
-        if (lr.is_read)
-            line.write_bytes(mr.data, lr.bytes_processed, 2);
+        if (line_request.request_type == request_type::read)
+            line.write_bytes(mr.data, line_request.bytes_processed, 2);
 
-        lr.awaiting_memory_request = false;
-        lr.bytes_processed += 2;
-        std::cout << "\tgot request from memory" << std::endl;
+        line_request.awaiting_memory_request = false;
+        line_request.bytes_processed += 2;
     }
 
-    // all bytes are read/written, line request to memory is complete
-    if (lr.bytes_processed == line.data.size()) {
-        std::cout << "\tcompleted line request" << std::endl;
-        if (lr.is_read) {
+    if (line_request.bytes_processed == line.data.size()) {
+        if (line_request.request_type == request_type::read) {
             line.is_valid = true;
-            line.addr = lr.addr;
+            line.addr = line_request.addr;
             line.is_dirty = false;
         }
         else {
             line.is_valid = true;
             line.is_dirty = false;
-            assert(line.addr == lr.addr);
         }
 
-        // drop currrent line request
-        this->line_requests.pop();
-        // check other line requests
-        this->process_line_requests(); 
+        line_requests.pop();
+
+        process_line_requests(); 
     }
-    else if (!lr.awaiting_memory_request) {
+    else if (!line_request.awaiting_memory_request) {
         // send requests to memory
-        if (lr.is_read)
-            this->memory.send_read_request(lr.addr + lr.bytes_processed, 2);
+        if (line_request.request_type == request_type::read)
+            memory.send_read_request(line_request.addr + line_request.bytes_processed, 2);
         else
-            this->memory.send_write_request(line.read_bytes(lr.bytes_processed, 2),
-                                            lr.addr + lr.bytes_processed, 2);
-        lr.awaiting_memory_request = true;
-        std::cout << "\tsent request to memory" << std::endl;
+            memory.send_write_request(line.read_bytes(line_request.bytes_processed, 2),
+                                            line_request.addr + line_request.bytes_processed, 2);
+        line_request.awaiting_memory_request = true;
     }
 }
 
 void Cache::process() {
-    std::cout << "CACHE: " << std::endl;
-    auto& r = this->request;  // alias
+    auto& r = request;  // alias
 
-    assert(!r.complete);
+    if (line_requests.empty()) {
+        const auto [is_hit, way] = lookup(r.addr);
+        if (is_hit) {
+            auto& r = request;  // alias
 
-    if (this->line_requests.empty()) {
-        const auto [hit, way] = this->lookup(r.addr);
-        if (hit)
-            this->process_hit(way);
-        else
-            this->process_miss();
+            uint32_t set = get_set(r.addr);
+            Line& line = cache_mem[way][set];
+
+            uint32_t offset = get_line_offset(r.addr);
+            if (r.request_type == request_type::read) {
+                r.data = line.read_bytes(offset, r.num_bytes);
+            }
+            else {
+                line.write_bytes(r.data, offset, r.num_bytes);
+                line.is_dirty = true;
+            }
+            r.is_completed = true;
+        }
+        else {
+            uint32_t set = get_set(request.addr);
+            uint32_t way = fifo_queues[set].front();
+            fifo_queues[set].pop();
+            fifo_queues[set].push(way);
+
+            Line& line = cache_mem[way][set];
+
+            if (line.is_valid && line.is_dirty) {
+                line_requests.push(
+                    LineRequest(get_line_addr(line.addr), set, way, request_type::write)
+                );
+            }
+
+            line_requests.push(
+                LineRequest(get_line_addr(request.addr), set, way, request_type::read)
+            );
+        }
     }
-    this->process_line_requests();
+    process_line_requests();
 }
 
 
-std::pair<bool, Way> Cache::lookup(uint32_t addr) {
-    const auto set = this->get_set(addr);
-    const auto tag = this->get_tag(addr);
-    for (uint way = 0; way < this->array.size(); ++way) {
-        auto& line = this->array[way][set];
-        if (this->get_tag(line.addr) == tag && line.is_valid) {
+std::pair<bool, uint32_t> Cache::lookup(uint32_t addr) {
+    const auto set = get_set(addr);
+    const auto tag = get_tag(addr);
+    for (uint way = 0; way < cache_mem.size(); ++way) {
+        auto& line = cache_mem[way][set];
+        if (get_tag(line.addr) == tag && line.is_valid) {
             return {true, way};
         }
     }
-    return {false, NO_VAL32};
+    return {false, 0xBAAAAAAD};
 }
 
 void Cache::send_read_request(uint32_t addr, uint32_t num_bytes) {
-    auto& r = this->request;  // alias
+    request.request_type = request_type::read;
+    request.is_completed = false;
+    request.num_bytes = num_bytes;
+    request.addr = addr;
+    request.data = 0xBAAAAAAD;
 
-    if (!r.complete)
-        throw std::invalid_argument("Cannot send second request!");
-    if ((addr % num_bytes) != 0) {
-        std::stringstream stream;
-        stream << "Unaligned cache access at addr " << std::hex << addr
-               << " with num_bytes " << num_bytes;
-        throw std::invalid_argument(stream.str());
-    }
-
-    r.is_read = true;
-    r.complete = false;
-    r.num_bytes = num_bytes;
-    r.addr = addr;
-    r.data = NO_VAL32;
-
-    this->process();
-    this->process_called_this_cycle = true;
+    process();
+    process_called_this_cycle = true;
 }
 
 void Cache::send_write_request(uint32_t value, uint32_t addr, uint32_t num_bytes) {
-    auto& r = this->request;  // alias
+    request.request_type = request_type::write;
+    request.is_completed = false;
+    request.num_bytes = num_bytes;
+    request.addr = addr;
+    request.data = value;
 
-    if (!r.complete)
-        throw std::invalid_argument("Cannot send second request!");
-    if (num_bytes > 2)
-        throw std::invalid_argument("Cache can't handle > 2 bytes per request");
-    if ((addr % num_bytes) != 0) {
-        std::stringstream stream;
-        stream << "Unaligned cache access at addr " << std::hex << addr
-               << " with num_bytes " << num_bytes;
-        throw std::invalid_argument(stream.str());
-    }
-
-    r.is_read = false;
-    r.complete = false;
-    r.num_bytes = num_bytes;
-    r.addr = addr;
-    r.data = value;
-
-    this->process();
-    this->process_called_this_cycle = true;
+    process();
+    process_called_this_cycle = true;
 }
 
 void Cache::clock() {
-    auto& r = this->request;  // alias
-
-    if (r.complete)
+    if (request.is_completed)
         return;
 
-    if (!this->process_called_this_cycle)
-        this->process();
+    if (!process_called_this_cycle)
+        process();
 
-    this->process_called_this_cycle = false;
+    process_called_this_cycle = false;
 }
 
 Cache::RequestResult Cache::get_request_status() {
-    auto& r = this->request;  // alias
-
-    if (r.complete)
-        return RequestResult {true, r.data};
+    if (request.is_completed)
+        return RequestResult {true, request.data};
     else
-        return RequestResult {false, NO_VAL32};
+        return RequestResult {false, 0xBAAAAAAD};
 }
